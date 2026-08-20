@@ -1,0 +1,968 @@
+import QtQuick
+import QtQuick.Controls
+import Quickshell
+import Quickshell.Hyprland
+import qs.Commons
+import qs.Ui
+
+BarWidget {
+  id: taskbar
+
+  moduleName: "xava.app-taskbar"
+
+  readonly property string defaultPinnedApps: '[{"label":"Zen","match":"^zen$","launch":"omarchy-launch-browser","icon":"zen-browser","desktopId":"zen"},{"label":"Cursor","match":"^cursor$","launch":"uwsm-app -- cursor","icon":"co.anysphere.cursor","desktopId":"cursor"}]'
+  readonly property var pinnedApps: parsePinnedApps(setting("pinnedApps", defaultPinnedApps))
+  readonly property bool showRunning: setting("showRunning", true) === true
+  readonly property bool groupRunningByWorkspace: setting("groupRunningByWorkspace", true) === true
+  readonly property bool showIcons: setting("showIcons", true) === true
+  readonly property bool showLabels: setting("showLabels", true) === true
+  readonly property bool iconOnlyWhenClosed: setting("iconOnlyWhenClosed", true) === true
+  readonly property string labelFormat: String(setting("labelFormat", "[APP_NAME] - [WINDOW_TITLE]"))
+  readonly property string widthMode: String(setting("widthMode", "Adaptive"))
+  readonly property int fixedItemWidth: Math.max(24, Number(setting("fixedItemWidth", 160)))
+  readonly property int maxAdaptiveWidth: Math.max(24, Number(setting("maxAdaptiveWidth", 280)))
+  readonly property string activeIndicator: String(setting("activeIndicator", "Underline"))
+  readonly property int itemSpacing: Math.max(0, Number(setting("itemSpacing", 4)))
+  readonly property int itemHorizontalPadding: Math.max(0, Number(setting("itemHorizontalPadding", 8)))
+  readonly property int itemVerticalPadding: Math.max(0, Number(setting("itemVerticalPadding", 12)))
+  readonly property int iconLabelSpacing: Math.max(0, Number(setting("iconLabelSpacing", 8)))
+  readonly property int iconSize: Math.max(8, Number(setting("iconSize", 18)))
+  readonly property int fontSize: Math.max(8, Number(setting("fontSize", 12)))
+  readonly property int normalFontWeight: Math.max(1, Math.min(1000, Number(setting("normalFontWeight", 400))))
+  readonly property int hoverFontWeight: Math.max(1, Math.min(1000, Number(setting("hoverFontWeight", 500))))
+  readonly property int activeFontWeight: Math.max(1, Math.min(1000, Number(setting("activeFontWeight", 600))))
+  readonly property color normalTextColor: configuredColor(setting("normalColor", ""),
+    bar ? bar.barForeground : Color.foreground)
+  readonly property string normalBackgroundValue: String(setting("normalBackgroundColor", "")).trim()
+  readonly property bool normalBackgroundEnabled: normalBackgroundValue.length > 0
+  readonly property color normalBackgroundColor: configuredColor(
+    normalBackgroundValue, Style.normalFillFor(normalTextColor, Color.accent))
+  readonly property color activeTextColor: configuredColor(setting("activeColor", ""),
+    bar ? bar.barForeground : Color.foreground)
+  readonly property color hoverTextColor: configuredColor(setting("hoverColor", ""),
+    normalTextColor)
+  readonly property color hoverBackgroundColor: configuredColor(
+    setting("hoverBackgroundColor", ""), Style.hoverFillFor(hoverTextColor, Color.accent))
+  readonly property color activeHoverBackgroundColor: Style.hoverFillFor(
+    activeTextColor, Color.accent)
+  readonly property string activeBackgroundValue: String(setting("activeBackgroundColor", "")).trim()
+  readonly property bool activeBackgroundEnabled: activeBackgroundValue.length > 0
+  readonly property color activeBackgroundColor: configuredColor(
+    activeBackgroundValue, activeHoverBackgroundColor)
+  readonly property color indicatorColor: configuredColor(setting("indicatorColor", ""), Color.accent)
+  readonly property int indicatorThickness: Math.max(1, Number(setting("indicatorThickness", 2)))
+  readonly property int indicatorSize: Math.max(2, Number(setting("indicatorSize", 4)))
+  readonly property int indicatorLength: Math.max(0, Number(setting("indicatorLength", 0)))
+  readonly property int indicatorMargin: Math.max(0, Number(setting("indicatorMargin", 2)))
+  readonly property bool leadingSeparator: setting("leadingSeparator", false) === true
+  readonly property bool sectionSeparator: setting("sectionSeparator", true) === true
+  readonly property int maxLabelLength: Math.max(4, Number(setting("maxLabelLength", 14)))
+  readonly property int maxRunningWindows: Math.max(1, Number(setting("maxRunningWindows", 12)))
+  readonly property string excludedClasses: String(setting("excludedClasses", ""))
+  readonly property var activeWindow: Hyprland.activeToplevel
+  property int hyprlandRevision: 0
+  property bool contextMenuOpen: false
+  property bool settingsPanelOpen: false
+  property Item contextAnchor: null
+  property var contextApp: null
+  property var contextWindow: null
+  readonly property bool opened: contextMenuOpen || settingsPanelOpen
+  readonly property var contextWindows: windowsForDescriptor(contextApp, contextWindow)
+  readonly property var contextEntry: desktopEntryFor(contextApp, contextWindow)
+  readonly property var contextActions: {
+    var actions = contextEntry && contextEntry.actions ? contextEntry.actions : []
+    return actions.filter(function(action) {
+      return action && String(action.id || "").toLowerCase() !== "new-window"
+    })
+  }
+  readonly property int contextPinnedIndex: pinnedIndex(contextApp, contextWindow)
+  readonly property bool contextIsPinned: contextPinnedIndex >= 0
+  readonly property bool contextCanLaunch: !!(contextEntry || (contextApp && contextApp.launch))
+
+  readonly property var runningWindows: {
+    var revision = hyprlandRevision
+    var values = Hyprland.toplevels && Hyprland.toplevels.values
+      ? Hyprland.toplevels.values : []
+    var result = []
+
+    if (!showRunning) return result
+
+    for (var i = 0; i < values.length; i++) {
+      var candidate = values[i]
+      if (!candidate || !windowClass(candidate)) continue
+      if (isPinnedWindow(candidate) || isExcludedWindow(candidate)) continue
+      result.push(candidate)
+    }
+
+    if (groupRunningByWorkspace) {
+      result = result.map(function(window, index) {
+        return { window: window, originalIndex: index }
+      }).sort(function(left, right) {
+        var workspaceDifference = windowWorkspaceId(left.window) - windowWorkspaceId(right.window)
+        return workspaceDifference !== 0
+          ? workspaceDifference : left.originalIndex - right.originalIndex
+      }).map(function(entry) {
+        return entry.window
+      })
+    }
+
+    return result.slice(0, maxRunningWindows)
+  }
+
+  visible: !vertical && (pinnedApps.length > 0 || runningWindows.length > 0)
+  implicitWidth: visible ? content.implicitWidth : 0
+  implicitHeight: barSize
+
+  Behavior on implicitWidth {
+    NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+  }
+
+  function parsePinnedApps(raw) {
+    var parsed = raw
+
+    if (typeof raw === "string") {
+      try {
+        parsed = JSON.parse(raw)
+      } catch (exception) {
+        console.warn("xava.app-taskbar: pinnedApps is not valid JSON", exception)
+        parsed = []
+      }
+    }
+
+    if (!Array.isArray(parsed)) return []
+
+    return parsed.filter(function(app) {
+      return app && typeof app === "object"
+        && String(app.label || "").trim() !== ""
+        && String(app.match || "").trim() !== ""
+    }).map(function(app) {
+      return {
+        label: String(app.label || "App").trim(),
+        match: String(app.match || "").trim(),
+        launch: String(app.launch || "").trim(),
+        icon: String(app.icon || "").trim(),
+        desktopId: String(app.desktopId || "").trim()
+      }
+    })
+  }
+
+  function windowCandidates(toplevel) {
+    if (!toplevel) return []
+    var ipc = toplevel.lastIpcObject || null
+    var wayland = toplevel.wayland || null
+    return [
+      ipc && ipc.class ? ipc.class : "",
+      ipc && ipc.initialClass ? ipc.initialClass : "",
+      wayland && wayland.appId ? wayland.appId : ""
+    ].map(function(value) {
+      return String(value || "").trim()
+    }).filter(function(value) {
+      return value !== ""
+    })
+  }
+
+  function patternMatches(pattern, values) {
+    if (!pattern) return false
+    try {
+      var matcher = new RegExp(pattern, "i")
+      for (var i = 0; i < values.length; i++) {
+        if (matcher.test(values[i])) return true
+      }
+    } catch (exception) {
+      console.warn("xava.app-taskbar: invalid class pattern", pattern, exception)
+    }
+    return false
+  }
+
+  function appMatchesWindow(app, toplevel) {
+    return app && patternMatches(String(app.match || ""), windowCandidates(toplevel))
+  }
+
+  function isPinnedWindow(toplevel) {
+    for (var i = 0; i < pinnedApps.length; i++) {
+      if (appMatchesWindow(pinnedApps[i], toplevel)) return true
+    }
+    return false
+  }
+
+  function isExcludedWindow(toplevel) {
+    if (!excludedClasses.trim()) return false
+    var patterns = excludedClasses.split(",")
+    var candidates = windowCandidates(toplevel)
+    for (var i = 0; i < patterns.length; i++) {
+      if (patternMatches(patterns[i].trim(), candidates)) return true
+    }
+    return false
+  }
+
+  function findPinnedWindow(app) {
+    if (activeWindow && appMatchesWindow(app, activeWindow)) return activeWindow
+
+    var values = Hyprland.toplevels && Hyprland.toplevels.values
+      ? Hyprland.toplevels.values : []
+    for (var i = 0; i < values.length; i++) {
+      if (appMatchesWindow(app, values[i])) return values[i]
+    }
+    return null
+  }
+
+  function windowClass(toplevel) {
+    var candidates = windowCandidates(toplevel)
+    return candidates.length > 0 ? candidates[0] : ""
+  }
+
+  function windowWorkspaceId(toplevel) {
+    var ipc = toplevel ? (toplevel.lastIpcObject || null) : null
+    var workspace = ipc ? (ipc.workspace || null) : null
+    var id = workspace ? Number(workspace.id) : 0
+    return isNaN(id) ? 0 : id
+  }
+
+  function startsWorkspaceGroup(index, toplevel) {
+    if (!groupRunningByWorkspace || index <= 0) return false
+    return windowWorkspaceId(toplevel) !== windowWorkspaceId(runningWindows[index - 1])
+  }
+
+  function windowDesktopEntry(toplevel) {
+    var candidates = windowCandidates(toplevel)
+    for (var i = 0; i < candidates.length; i++) {
+      var entry = DesktopEntries.heuristicLookup(candidates[i])
+      if (entry) return entry
+    }
+    return null
+  }
+
+  function windowLabel(toplevel) {
+    var entry = windowDesktopEntry(toplevel)
+    if (entry && entry.name) return String(entry.name)
+
+    var ipc = toplevel ? (toplevel.lastIpcObject || null) : null
+    var tags = ipc && Array.isArray(ipc.tags) ? ipc.tags : []
+    for (var i = 0; i < tags.length; i++) {
+      if (String(tags[i]).indexOf("terminal") === 0) return "Terminal"
+    }
+
+    var appClass = windowClass(toplevel)
+    if (appClass) {
+      var pieces = appClass.split(".")
+      var value = pieces[pieces.length - 1].replace(/[-_]+/g, " ")
+      return value.charAt(0).toUpperCase() + value.slice(1)
+    }
+
+    return windowTitle(toplevel) || "Window"
+  }
+
+  function windowTitle(toplevel) {
+    if (!toplevel) return ""
+
+    var directTitle = toplevel.title ? String(toplevel.title).trim() : ""
+    if (directTitle) return directTitle
+
+    var ipc = toplevel.lastIpcObject || null
+    return ipc && ipc.title ? String(ipc.title).trim() : ""
+  }
+
+  function windowIcon(toplevel) {
+    var entry = windowDesktopEntry(toplevel)
+    return entry && entry.icon ? String(entry.icon) : "application-x-executable"
+  }
+
+  function regexEscape(value) {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  }
+
+  function descriptorFor(app, toplevel) {
+    if (app) return {
+      label: String(app.label || windowLabel(toplevel) || "App"),
+      match: String(app.match || ""),
+      launch: String(app.launch || ""),
+      icon: String(app.icon || windowIcon(toplevel) || "application-x-executable"),
+      desktopId: String(app.desktopId || "")
+    }
+
+    var entry = windowDesktopEntry(toplevel)
+    var appClass = windowClass(toplevel)
+    var desktopId = entry ? String(entry.id || "") : ""
+    return {
+      label: windowLabel(toplevel),
+      match: "^" + regexEscape(appClass) + "$",
+      launch: desktopId
+        ? "uwsm-app -- gtk-launch " + Util.shellQuote(desktopId + ".desktop") : "",
+      icon: entry && entry.icon ? String(entry.icon) : windowIcon(toplevel),
+      desktopId: desktopId
+    }
+  }
+
+  function desktopEntryFor(app, toplevel) {
+    if (toplevel) {
+      var matched = windowDesktopEntry(toplevel)
+      if (matched) return matched
+    }
+
+    var desktopId = String(app && app.desktopId ? app.desktopId : "")
+    if (desktopId) {
+      var normalized = desktopId.slice(-8) === ".desktop"
+        ? desktopId.slice(0, -8) : desktopId
+      var byId = DesktopEntries.byId(normalized)
+        || DesktopEntries.byId(normalized + ".desktop")
+      if (byId) return byId
+    }
+
+    return app && app.label ? DesktopEntries.heuristicLookup(String(app.label)) : null
+  }
+
+  function windowsForDescriptor(app, toplevel) {
+    var revision = hyprlandRevision
+    var descriptor = descriptorFor(app, toplevel)
+    var values = Hyprland.toplevels && Hyprland.toplevels.values
+      ? Hyprland.toplevels.values : []
+    var result = []
+
+    for (var i = 0; i < values.length; i++) {
+      if (appMatchesWindow(descriptor, values[i])) result.push(values[i])
+    }
+    return result
+  }
+
+  function pinnedIndex(app, toplevel) {
+    var descriptor = descriptorFor(app, toplevel)
+    for (var i = 0; i < pinnedApps.length; i++) {
+      if (descriptor.match === pinnedApps[i].match) return i
+      if (toplevel && appMatchesWindow(pinnedApps[i], toplevel)) return i
+    }
+    return -1
+  }
+
+  function resolveIconSource(icon) {
+    var value = String(icon || "")
+    if (bar && bar.shell && bar.shell.appLibrary) return bar.shell.appLibrary.iconSource(value)
+    if (value.indexOf("file://") === 0 || value.indexOf("image://") === 0) return value
+    if (value.charAt(0) === "/") return Util.fileUrl(value)
+    return Quickshell.iconPath(value || "application-x-executable", true)
+  }
+
+  function shortenedLabel(label) {
+    var value = String(label || "App")
+    if (value.length <= maxLabelLength) return value
+    return value.slice(0, Math.max(1, maxLabelLength - 1)) + "…"
+  }
+
+  function configuredColor(value, fallback) {
+    var candidate = String(value || "").trim()
+    if (!candidate) return fallback
+    if (/^#[0-9a-f]{6}$/i.test(candidate)) return candidate
+    if (/^#[0-9a-f]{8}$/i.test(candidate)) {
+      return "#" + candidate.slice(7, 9) + candidate.slice(1, 7)
+    }
+    console.warn("xava.app-taskbar: invalid color; use #RRGGBB or #RRGGBBAA", candidate)
+    return fallback
+  }
+
+  function formattedWindowLabel(appName, toplevel) {
+    var app = String(appName || "App").trim() || "App"
+    var title = windowTitle(toplevel)
+    var format = labelFormat.trim() || "[APP_NAME]"
+
+    if (!title) return app
+
+    var result = format
+      .replace(/\[APP_NAME\]/gi, app)
+      .replace(/\[WINDOW_TITLE\]/gi, title)
+      .trim()
+    return result || app
+  }
+
+  function normalizedAddress(toplevel) {
+    if (!toplevel || !toplevel.address) return ""
+    var address = String(toplevel.address)
+    return address.indexOf("0x") === 0 ? address : "0x" + address
+  }
+
+  function activateOrLaunch(app, toplevel) {
+    if (toplevel) {
+      var address = normalizedAddress(toplevel)
+      if (address) {
+        Quickshell.execDetached([
+          "hyprctl",
+          "dispatch",
+          "hl.dsp.focus({ window = " + JSON.stringify("address:" + address) + " })"
+        ])
+        return
+      }
+    }
+    if (app && app.launch && bar) bar.run(String(app.launch))
+  }
+
+  function openContextMenu(anchor, app, toplevel) {
+    settingsPanelOpen = false
+    contextAnchor = anchor
+    contextApp = descriptorFor(app, toplevel)
+    contextWindow = toplevel
+    contextMenuOpen = true
+  }
+
+  function close() {
+    contextMenuOpen = false
+    settingsPanelOpen = false
+  }
+
+  function openSettingsPanel() {
+    contextMenuOpen = false
+    Qt.callLater(function() { settingsPanelOpen = true })
+  }
+
+  function persistSetting(key, value) {
+    if (!bar || !bar.shell || typeof bar.shell.updateEntryInline !== "function") return
+    var nextSettings = Object.assign({}, settings || {})
+    nextSettings[key] = value
+    settings = nextSettings
+    bar.shell.updateEntryInline(moduleName, nextSettings)
+  }
+
+  function defaultSettings() {
+    var registry = bar ? bar.barWidgetRegistry : null
+    var metadata = registry && typeof registry.metadataFor === "function"
+      ? registry.metadataFor(moduleName) : null
+    var defaults = metadata && metadata.defaults ? metadata.defaults : ({})
+    return Object.assign({}, defaults)
+  }
+
+  function resetSettings() {
+    if (!bar || !bar.shell || typeof bar.shell.updateEntryInline !== "function") return
+    var defaults = defaultSettings()
+    settings = defaults
+    bar.shell.updateEntryInline(moduleName, defaults)
+  }
+
+  function persistPinnedApps(apps) {
+    if (!bar || !bar.shell || typeof bar.shell.updateEntryInline !== "function") return
+    var nextSettings = Object.assign({}, settings || {})
+    nextSettings.pinnedApps = JSON.stringify(apps.map(function(app) {
+      return descriptorFor(app, null)
+    }))
+    settings = nextSettings
+    bar.shell.updateEntryInline(moduleName, nextSettings)
+  }
+
+  function toggleContextPin() {
+    var next = pinnedApps.slice()
+    if (contextPinnedIndex >= 0) next.splice(contextPinnedIndex, 1)
+    else if (contextApp && contextApp.match) next.push(descriptorFor(contextApp, contextWindow))
+    close()
+    persistPinnedApps(next)
+  }
+
+  function launchContextNewWindow() {
+    if (contextEntry && bar && bar.shell && bar.shell.appLibrary) {
+      bar.shell.appLibrary.launch(String(contextEntry.id || ""), String(contextEntry.name || contextApp.label))
+    } else if (contextApp && contextApp.launch && bar) {
+      bar.run(String(contextApp.launch))
+    }
+    close()
+  }
+
+  function executeDesktopAction(action) {
+    close()
+    if (action && typeof action.execute === "function") action.execute()
+  }
+
+  function closeWindow(toplevel) {
+    var address = normalizedAddress(toplevel)
+    if (!address) return
+    Quickshell.execDetached([
+      "hyprctl",
+      "dispatch",
+      "hl.dsp.window.close({ window = " + JSON.stringify("address:" + address) + " })"
+    ])
+  }
+
+  function closeContextWindow() {
+    var target = contextWindow
+    close()
+    closeWindow(target)
+  }
+
+  function closeContextWindows() {
+    var targets = contextWindows.slice()
+    close()
+    for (var i = 0; i < targets.length; i++) closeWindow(targets[i])
+  }
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) { taskbar.hyprlandRevision++ }
+  }
+
+  Row {
+    id: content
+    anchors.centerIn: parent
+    spacing: Style.space(taskbar.itemSpacing)
+
+    TaskbarSeparator {
+      visible: taskbar.leadingSeparator && taskbar.pinnedApps.length > 0
+    }
+
+    Repeater {
+      model: taskbar.pinnedApps
+
+      AppChip {
+        required property var modelData
+
+        app: modelData
+        appWindow: {
+          var revision = taskbar.hyprlandRevision
+          var focused = taskbar.activeWindow
+          return taskbar.findPinnedWindow(modelData)
+        }
+        pinned: true
+        displayLabel: taskbar.formattedWindowLabel(modelData.label, appWindow)
+        iconName: modelData.icon || taskbar.windowIcon(appWindow)
+      }
+    }
+
+    TaskbarSeparator {
+      visible: taskbar.sectionSeparator
+        && taskbar.pinnedApps.length > 0
+        && taskbar.runningWindows.length > 0
+    }
+
+    Repeater {
+      model: taskbar.runningWindows
+
+      Row {
+        required property int index
+        required property var modelData
+        spacing: Style.space(taskbar.itemSpacing)
+
+        TaskbarSeparator {
+          visible: taskbar.startsWorkspaceGroup(parent.index, parent.modelData)
+        }
+
+        AppChip {
+          app: null
+          appWindow: parent.modelData
+          pinned: false
+          displayLabel: taskbar.formattedWindowLabel(
+            taskbar.windowLabel(parent.modelData), parent.modelData)
+          iconName: taskbar.windowIcon(parent.modelData)
+        }
+      }
+    }
+  }
+
+  PopupCard {
+    id: contextPopup
+    anchorItem: taskbar.contextAnchor || taskbar
+    owner: taskbar
+    bar: taskbar.bar
+    open: taskbar.contextMenuOpen
+    padding: Style.space(8)
+    contentWidth: contextPopup.fittedContentWidth(Style.space(300))
+    contentHeight: contextPopup.fittedContentHeight(contextMenuColumn.implicitHeight, Style.space(480))
+
+    Flickable {
+      anchors.fill: parent
+      contentWidth: width
+      contentHeight: contextMenuColumn.implicitHeight
+      clip: true
+      boundsBehavior: Flickable.StopAtBounds
+      flickableDirection: Flickable.VerticalFlick
+      interactive: contentHeight > height
+
+      ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+      Column {
+        id: contextMenuColumn
+        width: parent.width
+        spacing: 0
+
+        Item {
+          width: parent.width
+          implicitHeight: Style.space(48)
+
+          Image {
+            id: contextIcon
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(8)
+            anchors.verticalCenter: parent.verticalCenter
+            width: Style.space(24)
+            height: width
+            source: taskbar.resolveIconSource(taskbar.contextApp
+              ? taskbar.contextApp.icon : "application-x-executable")
+            sourceSize.width: Math.round(width * Screen.devicePixelRatio)
+            sourceSize.height: Math.round(height * Screen.devicePixelRatio)
+            fillMode: Image.PreserveAspectFit
+          }
+
+          Button {
+            id: contextSettingsButton
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(4)
+            anchors.verticalCenter: parent.verticalCenter
+            iconText: "\uf013"
+            foreground: taskbar.bar ? taskbar.bar.barForeground : Color.foreground
+            accent: Color.accent
+            fontFamily: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+            horizontalPadding: Style.space(9)
+            verticalPadding: Style.space(6)
+            tooltipText: "OmaPanel settings"
+            onClicked: taskbar.openSettingsPanel()
+          }
+
+          Column {
+            anchors.left: contextIcon.right
+            anchors.leftMargin: Style.space(10)
+            anchors.right: contextSettingsButton.left
+            anchors.rightMargin: Style.space(8)
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Style.space(2)
+
+            Text {
+              width: parent.width
+              text: taskbar.contextApp ? taskbar.contextApp.label : "Application"
+              color: taskbar.bar ? taskbar.bar.barForeground : Color.foreground
+              font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.body
+              font.bold: true
+              elide: Text.ElideRight
+            }
+
+            Text {
+              width: parent.width
+              text: taskbar.contextWindows.length === 0
+                ? "Not running"
+                : (taskbar.contextWindows.length === 1
+                  ? "1 window" : taskbar.contextWindows.length + " windows")
+              color: Util.alpha(taskbar.bar ? taskbar.bar.barForeground : Color.foreground, 0.55)
+              font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.caption
+            }
+          }
+        }
+
+        MenuSeparator { visible: taskbar.contextWindows.length > 0 }
+
+        Repeater {
+          model: taskbar.contextWindows
+
+          MenuRow {
+            required property var modelData
+
+            text: taskbar.windowTitle(modelData) || taskbar.windowLabel(modelData)
+            iconText: taskbar.activeWindow === modelData ? "\uf111" : ""
+            onTriggered: {
+              taskbar.close()
+              taskbar.activateOrLaunch(null, modelData)
+            }
+          }
+        }
+
+        MenuSeparator { visible: taskbar.contextWindows.length > 0 }
+
+        MenuRow {
+          visible: taskbar.contextCanLaunch
+          text: "New Window"
+          iconText: "\uf2d2"
+          onTriggered: taskbar.launchContextNewWindow()
+        }
+
+        Repeater {
+          model: taskbar.contextActions
+
+          MenuRow {
+            required property var modelData
+
+            text: String(modelData.name || modelData.id || "Application Action")
+            iconText: "\uf144"
+            onTriggered: taskbar.executeDesktopAction(modelData)
+          }
+        }
+
+        MenuRow {
+          enabled: taskbar.contextIsPinned || taskbar.contextCanLaunch
+          text: taskbar.contextIsPinned ? "Unpin from Taskbar" : "Pin to Taskbar"
+          iconText: taskbar.contextIsPinned ? "\uf127" : "\uf08d"
+          onTriggered: taskbar.toggleContextPin()
+        }
+
+        MenuSeparator { visible: taskbar.contextWindows.length > 0 }
+
+        MenuRow {
+          visible: taskbar.contextWindows.length > 1
+          text: "Close " + taskbar.contextWindows.length + " Windows"
+          iconText: "\uf2d4"
+          destructive: true
+          onTriggered: taskbar.closeContextWindows()
+        }
+
+        MenuRow {
+          visible: taskbar.contextWindow !== null && taskbar.contextWindows.length > 0
+          text: "Close Window"
+          iconText: "\uf00d"
+          destructive: true
+          onTriggered: taskbar.closeContextWindow()
+        }
+      }
+    }
+  }
+
+  TaskbarSettings {
+    id: taskbarSettings
+    anchorItem: taskbar.contextAnchor || taskbar
+    owner: taskbar
+    bar: taskbar.bar
+    open: taskbar.settingsPanelOpen
+    values: taskbar.settings || ({})
+    onSettingChanged: function(key, value) { taskbar.persistSetting(key, value) }
+    onResetRequested: taskbar.resetSettings()
+  }
+
+  component TaskbarSeparator: Item {
+    width: Style.space(9)
+    height: taskbar.barSize
+
+    Rectangle {
+      width: Math.max(1, Style.spaceReal(1))
+      height: Math.min(parent.height * 0.42, Style.space(16))
+      anchors.centerIn: parent
+      color: taskbar.bar ? taskbar.bar.barForeground : Color.foreground
+      opacity: 0.3
+      radius: width / 2
+    }
+  }
+
+  component MenuSeparator: Item {
+    width: parent ? parent.width : Style.space(280)
+    implicitHeight: visible ? Style.space(11) : 0
+
+    Rectangle {
+      anchors.left: parent.left
+      anchors.leftMargin: Style.space(8)
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+      height: 1
+      color: Color.popups.border
+      opacity: 0.5
+    }
+  }
+
+  component MenuRow: Item {
+    id: menuRow
+
+    property string text: ""
+    property string iconText: ""
+    property bool destructive: false
+    signal triggered()
+
+    width: parent ? parent.width : Style.space(280)
+    implicitHeight: Style.space(32)
+    opacity: enabled ? 1 : 0.4
+
+    Rectangle {
+      anchors.fill: parent
+      radius: Math.max(2, Style.cornerRadius)
+      color: menuMouse.containsMouse && menuRow.enabled
+        ? Style.hoverFillFor(menuRow.destructive ? Color.urgent
+          : (taskbar.bar ? taskbar.bar.barForeground : Color.foreground), Color.accent)
+        : "transparent"
+    }
+
+    Text {
+      anchors.left: parent.left
+      width: Style.space(30)
+      anchors.verticalCenter: parent.verticalCenter
+      horizontalAlignment: Text.AlignHCenter
+      text: menuRow.iconText
+      color: menuRow.destructive ? Color.urgent
+        : (taskbar.bar ? taskbar.bar.barForeground : Color.foreground)
+      font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+      font.pixelSize: Style.font.bodySmall
+    }
+
+    Text {
+      anchors.left: parent.left
+      anchors.leftMargin: Style.space(34)
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(10)
+      anchors.verticalCenter: parent.verticalCenter
+      text: menuRow.text
+      color: menuRow.destructive ? Color.urgent
+        : (taskbar.bar ? taskbar.bar.barForeground : Color.foreground)
+      font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+      font.pixelSize: Style.font.bodySmall
+      elide: Text.ElideRight
+    }
+
+    MouseArea {
+      id: menuMouse
+      anchors.fill: parent
+      enabled: menuRow.enabled
+      hoverEnabled: true
+      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+      onClicked: menuRow.triggered()
+    }
+  }
+
+  component AppChip: WidgetButton {
+    id: chip
+
+    required property var app
+    required property var appWindow
+    required property bool pinned
+    required property string displayLabel
+    required property string iconName
+
+    readonly property bool isActive: appWindow !== null && taskbar.activeWindow === appWindow
+    readonly property bool isClosedPinned: pinned && appWindow === null
+    readonly property bool effectiveShowIcons: taskbar.showIcons
+      || (taskbar.iconOnlyWhenClosed && isClosedPinned)
+    readonly property bool effectiveShowLabels: !isClosedPinned || !taskbar.iconOnlyWhenClosed
+      ? (taskbar.showLabels || !effectiveShowIcons) : false
+    readonly property bool fixedWidthMode: taskbar.widthMode.toLowerCase() === "fixed"
+    readonly property string shortLabel: taskbar.shortenedLabel(displayLabel)
+    readonly property int iconExtent: Style.space(taskbar.iconSize)
+    readonly property real labelHeight: effectiveShowLabels ? labelMetrics.height : 0
+    readonly property real contentSpacing: effectiveShowIcons && effectiveShowLabels
+      ? Style.space(taskbar.iconLabelSpacing) : 0
+    readonly property real horizontalPaddingExtent: Style.space(taskbar.itemHorizontalPadding * 2)
+    readonly property real iconContentExtent: effectiveShowIcons ? iconExtent : 0
+    readonly property real nonLabelExtent: horizontalPaddingExtent + iconContentExtent + contentSpacing
+    readonly property real naturalWidth: nonLabelExtent
+      + (effectiveShowLabels ? labelMetrics.advanceWidth : 0)
+    readonly property real compactWidth: horizontalPaddingExtent + iconContentExtent
+    readonly property real calculatedWidth: isClosedPinned && taskbar.iconOnlyWhenClosed
+      ? compactWidth
+      : (fixedWidthMode
+        ? Math.max(nonLabelExtent, Style.space(taskbar.fixedItemWidth))
+        : Math.max(nonLabelExtent,
+          Math.min(naturalWidth, Style.space(taskbar.maxAdaptiveWidth))))
+    readonly property real labelExtent: effectiveShowLabels
+      ? Math.max(0, calculatedWidth - nonLabelExtent) : 0
+    readonly property real contentHeight: Math.max(effectiveShowIcons ? iconExtent : 0, labelHeight)
+    readonly property color foregroundColor: tooltipHovered
+      ? taskbar.hoverTextColor
+      : (isActive ? taskbar.activeTextColor : taskbar.normalTextColor)
+    readonly property int foregroundWeight: tooltipHovered
+      ? taskbar.hoverFontWeight
+      : (isActive ? taskbar.activeFontWeight : taskbar.normalFontWeight)
+
+    bar: taskbar.bar
+    text: ""
+    labelVisible: false
+    hasVisualContent: true
+    keepSpace: true
+    useActiveColor: false
+    dimmed: false
+    fixedWidth: calculatedWidth
+    fixedHeight: Math.min(taskbar.barSize,
+      contentHeight + Style.space(taskbar.itemVerticalPadding * 2))
+    tooltipText: displayLabel
+      + (pinned && appWindow === null ? "\nClick to open" : "\nClick to focus")
+
+    onPressed: function(button) {
+      if (button === Qt.RightButton) {
+        taskbar.openContextMenu(chip, app, appWindow)
+      } else if (button === Qt.LeftButton) {
+        taskbar.close()
+        taskbar.activateOrLaunch(app, appWindow)
+      }
+    }
+
+    TextMetrics {
+      id: labelMetrics
+      font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+      font.pixelSize: taskbar.fontSize
+      font.weight: chip.foregroundWeight
+      text: chip.shortLabel
+    }
+
+    Rectangle {
+      readonly property bool persistentActive: chip.isActive
+        && taskbar.activeBackgroundEnabled
+
+      anchors.fill: parent
+      anchors.margins: Style.space(1)
+      radius: Math.max(2, Style.cornerRadius)
+      color: chip.tooltipHovered ? taskbar.hoverBackgroundColor
+        : (persistentActive ? taskbar.activeBackgroundColor : taskbar.normalBackgroundColor)
+      opacity: chip.tooltipHovered || persistentActive || taskbar.normalBackgroundEnabled ? 1 : 0
+
+      Behavior on opacity {
+        NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+      }
+    }
+
+    Row {
+      anchors.centerIn: parent
+      spacing: chip.contentSpacing
+
+      Item {
+        width: chip.iconExtent
+        height: chip.iconExtent
+        visible: chip.effectiveShowIcons
+
+        Image {
+          id: appIcon
+          anchors.fill: parent
+          source: taskbar.resolveIconSource(chip.iconName)
+          sourceSize.width: Math.round(width * Screen.devicePixelRatio)
+          sourceSize.height: Math.round(height * Screen.devicePixelRatio)
+          fillMode: Image.PreserveAspectFit
+          asynchronous: true
+          smooth: true
+          mipmap: true
+        }
+
+        Text {
+          anchors.centerIn: parent
+          visible: appIcon.status === Image.Error || appIcon.source.toString() === ""
+          text: chip.shortLabel.charAt(0).toUpperCase()
+          color: chip.foregroundColor
+          font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+          font.pixelSize: taskbar.fontSize
+          font.weight: chip.foregroundWeight
+        }
+      }
+
+      Text {
+        visible: chip.effectiveShowLabels
+        width: chip.labelExtent
+        text: chip.shortLabel
+        color: chip.foregroundColor
+        font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+        font.pixelSize: taskbar.fontSize
+        font.weight: chip.foregroundWeight
+        verticalAlignment: Text.AlignVCenter
+        elide: Text.ElideRight
+        maximumLineCount: 1
+      }
+    }
+
+    Rectangle {
+      readonly property bool dotIndicator: taskbar.activeIndicator === "Dot"
+      readonly property bool topIndicator: taskbar.activeIndicator === "Top"
+      readonly property real edgeMargin: Style.space(taskbar.indicatorMargin)
+
+      visible: chip.isActive && taskbar.activeIndicator !== "None"
+      width: dotIndicator
+        ? Style.space(taskbar.indicatorSize)
+        : (taskbar.indicatorLength > 0
+          ? Math.min(chip.width, Style.space(taskbar.indicatorLength))
+          : Math.max(Style.space(12), chip.width - Style.space(taskbar.itemHorizontalPadding * 2)))
+      height: dotIndicator
+        ? width : Style.space(taskbar.indicatorThickness)
+      x: Math.round((parent.width - width) / 2)
+      y: topIndicator
+        ? edgeMargin
+        : Math.max(0, parent.height - height - edgeMargin)
+      z: 2
+      color: taskbar.indicatorColor
+      radius: height / 2
+
+      Behavior on width {
+        NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+      }
+    }
+  }
+}

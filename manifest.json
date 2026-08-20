@@ -1,0 +1,366 @@
+{
+  "schemaVersion": 1,
+  "id": "xava.app-taskbar",
+  "name": "OmaPanel",
+  "version": "1.8.0",
+  "author": "xava",
+  "license": "MIT",
+  "description": "Pinned launch-or-focus applications followed by live Hyprland windows.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "activation": "on-demand",
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "OmaPanel",
+    "description": "Keep favorite apps pinned and show other open Hyprland windows.",
+    "category": "Compositor",
+    "aliases": [
+      "apps",
+      "dock",
+      "taskbar",
+      "windows"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "left",
+    "defaults": {
+      "pinnedApps": "[{\"label\":\"Zen\",\"match\":\"^zen$\",\"launch\":\"omarchy-launch-browser\",\"icon\":\"zen-browser\",\"desktopId\":\"zen\"},{\"label\":\"Cursor\",\"match\":\"^cursor$\",\"launch\":\"uwsm-app -- cursor\",\"icon\":\"co.anysphere.cursor\",\"desktopId\":\"cursor\"}]",
+      "showRunning": true,
+      "groupRunningByWorkspace": true,
+      "showIcons": true,
+      "showLabels": true,
+      "iconOnlyWhenClosed": true,
+      "labelFormat": "[APP_NAME] - [WINDOW_TITLE]",
+      "widthMode": "Adaptive",
+      "fixedItemWidth": 160,
+      "maxAdaptiveWidth": 280,
+      "activeIndicator": "Underline",
+      "itemSpacing": 4,
+      "itemHorizontalPadding": 8,
+      "itemVerticalPadding": 12,
+      "iconLabelSpacing": 8,
+      "iconSize": 18,
+      "fontSize": 12,
+      "normalFontWeight": 400,
+      "hoverFontWeight": 500,
+      "activeFontWeight": 600,
+      "normalColor": "",
+      "normalBackgroundColor": "",
+      "hoverColor": "",
+      "hoverBackgroundColor": "",
+      "activeColor": "",
+      "activeBackgroundColor": "",
+      "indicatorColor": "",
+      "indicatorThickness": 2,
+      "indicatorSize": 4,
+      "indicatorLength": 0,
+      "indicatorMargin": 2,
+      "leadingSeparator": false,
+      "sectionSeparator": true,
+      "maxLabelLength": 14,
+      "maxRunningWindows": 12,
+      "excludedClasses": ""
+    },
+    "schema": [
+      {
+        "key": "pinnedApps",
+        "type": "string",
+        "label": "Pinned applications (JSON)",
+        "description": "JSON array. Each item supports label, match (class regex), launch, icon, and desktopId.",
+        "defaultValue": "[{\"label\":\"Zen\",\"match\":\"^zen$\",\"launch\":\"omarchy-launch-browser\",\"icon\":\"zen-browser\",\"desktopId\":\"zen\"},{\"label\":\"Cursor\",\"match\":\"^cursor$\",\"launch\":\"uwsm-app -- cursor\",\"icon\":\"co.anysphere.cursor\",\"desktopId\":\"cursor\"}]"
+      },
+      {
+        "key": "showRunning",
+        "type": "boolean",
+        "label": "Show running windows",
+        "description": "Append non-pinned Hyprland windows to the widget.",
+        "defaultValue": true
+      },
+      {
+        "key": "groupRunningByWorkspace",
+        "type": "boolean",
+        "label": "Group windows by workspace",
+        "description": "Sort running windows by workspace and draw a separator between workspace groups.",
+        "defaultValue": true
+      },
+      {
+        "key": "showIcons",
+        "type": "boolean",
+        "label": "Show application icons",
+        "defaultValue": true
+      },
+      {
+        "key": "showLabels",
+        "type": "boolean",
+        "label": "Show application names",
+        "defaultValue": true
+      },
+      {
+        "key": "iconOnlyWhenClosed",
+        "type": "boolean",
+        "label": "Icon only when closed",
+        "description": "Pinned apps show only their icon until a matching window opens.",
+        "defaultValue": true
+      },
+      {
+        "key": "labelFormat",
+        "type": "string",
+        "label": "Running-app label format",
+        "description": "Template supporting [APP_NAME] and [WINDOW_TITLE].",
+        "defaultValue": "[APP_NAME] - [WINDOW_TITLE]"
+      },
+      {
+        "key": "widthMode",
+        "type": "enum",
+        "label": "Item width mode",
+        "description": "Adaptive follows content up to a limit; Fixed gives open items one width.",
+        "options": [
+          "Adaptive",
+          "Fixed"
+        ],
+        "defaultValue": "Adaptive"
+      },
+      {
+        "key": "fixedItemWidth",
+        "type": "integer",
+        "label": "Fixed item width",
+        "description": "Width used in Fixed mode. Closed icon-only pinned apps remain compact.",
+        "min": 32,
+        "max": 480,
+        "step": 4,
+        "defaultValue": 160
+      },
+      {
+        "key": "maxAdaptiveWidth",
+        "type": "integer",
+        "label": "Maximum adaptive width",
+        "description": "Maximum item width in Adaptive mode; overflowing labels are ellipsized.",
+        "min": 32,
+        "max": 640,
+        "step": 4,
+        "defaultValue": 280
+      },
+      {
+        "key": "activeIndicator",
+        "type": "enum",
+        "label": "Active-window indicator",
+        "options": [
+          "Underline",
+          "Top",
+          "Dot",
+          "None"
+        ],
+        "defaultValue": "Underline"
+      },
+      {
+        "key": "itemSpacing",
+        "type": "integer",
+        "label": "Space between items",
+        "min": 0,
+        "max": 24,
+        "step": 1,
+        "defaultValue": 4
+      },
+      {
+        "key": "itemHorizontalPadding",
+        "type": "integer",
+        "label": "Item horizontal padding",
+        "min": 0,
+        "max": 24,
+        "step": 1,
+        "defaultValue": 8
+      },
+      {
+        "key": "itemVerticalPadding",
+        "type": "integer",
+        "label": "Item vertical padding",
+        "min": 0,
+        "max": 16,
+        "step": 1,
+        "defaultValue": 12
+      },
+      {
+        "key": "iconLabelSpacing",
+        "type": "integer",
+        "label": "Icon-to-label spacing",
+        "min": 0,
+        "max": 20,
+        "step": 1,
+        "defaultValue": 8
+      },
+      {
+        "key": "iconSize",
+        "type": "integer",
+        "label": "Icon size",
+        "min": 8,
+        "max": 32,
+        "step": 1,
+        "defaultValue": 18
+      },
+      {
+        "key": "fontSize",
+        "type": "integer",
+        "label": "Label font size",
+        "min": 8,
+        "max": 24,
+        "step": 1,
+        "defaultValue": 12
+      },
+      {
+        "key": "normalFontWeight",
+        "type": "integer",
+        "label": "Normal label weight",
+        "description": "Qt font weight from 1 to 1000; 400 is normal.",
+        "min": 1,
+        "max": 1000,
+        "step": 50,
+        "defaultValue": 400
+      },
+      {
+        "key": "hoverFontWeight",
+        "type": "integer",
+        "label": "Hover label weight",
+        "description": "Qt font weight from 1 to 1000; 500 is medium.",
+        "min": 1,
+        "max": 1000,
+        "step": 50,
+        "defaultValue": 500
+      },
+      {
+        "key": "activeFontWeight",
+        "type": "integer",
+        "label": "Active label weight",
+        "description": "Qt font weight from 1 to 1000; 600 is semi-bold.",
+        "min": 1,
+        "max": 1000,
+        "step": 50,
+        "defaultValue": 600
+      },
+      {
+        "key": "normalColor",
+        "type": "string",
+        "label": "Normal label color",
+        "description": "Hex color (#RRGGBB or #RRGGBBAA). Empty uses the bar foreground.",
+        "defaultValue": ""
+      },
+      {
+        "key": "normalBackgroundColor",
+        "type": "string",
+        "label": "Normal background color",
+        "description": "Hex color (#RRGGBB or #RRGGBBAA). Empty disables the normal background.",
+        "defaultValue": ""
+      },
+      {
+        "key": "activeColor",
+        "type": "string",
+        "label": "Active label color",
+        "description": "Hex color (#RRGGBB or #RRGGBBAA). Empty uses the bar foreground.",
+        "defaultValue": ""
+      },
+      {
+        "key": "hoverColor",
+        "type": "string",
+        "label": "Hover foreground color",
+        "description": "Hex color (#RRGGBB or #RRGGBBAA). Empty uses the normal foreground.",
+        "defaultValue": ""
+      },
+      {
+        "key": "hoverBackgroundColor",
+        "type": "string",
+        "label": "Hover background color",
+        "description": "Hex color (#RRGGBB or #RRGGBBAA). Empty uses the theme hover fill.",
+        "defaultValue": ""
+      },
+      {
+        "key": "activeBackgroundColor",
+        "type": "string",
+        "label": "Active background color",
+        "description": "Hex #RRGGBB or #RRGGBBAA. Empty disables the persistent active background.",
+        "defaultValue": ""
+      },
+      {
+        "key": "indicatorColor",
+        "type": "string",
+        "label": "Indicator color",
+        "description": "Hex color (#RRGGBB or #RRGGBBAA). Empty uses the theme accent.",
+        "defaultValue": ""
+      },
+      {
+        "key": "indicatorThickness",
+        "type": "integer",
+        "label": "Line indicator thickness",
+        "min": 1,
+        "max": 8,
+        "step": 1,
+        "defaultValue": 2
+      },
+      {
+        "key": "indicatorSize",
+        "type": "integer",
+        "label": "Dot indicator size",
+        "min": 2,
+        "max": 16,
+        "step": 1,
+        "defaultValue": 4
+      },
+      {
+        "key": "indicatorLength",
+        "type": "integer",
+        "label": "Line indicator length",
+        "description": "Set to 0 to follow the item width automatically.",
+        "min": 0,
+        "max": 80,
+        "step": 1,
+        "defaultValue": 0
+      },
+      {
+        "key": "indicatorMargin",
+        "type": "integer",
+        "label": "Indicator edge margin",
+        "min": 0,
+        "max": 12,
+        "step": 1,
+        "defaultValue": 2
+      },
+      {
+        "key": "leadingSeparator",
+        "type": "boolean",
+        "label": "Separator before pinned apps",
+        "defaultValue": false
+      },
+      {
+        "key": "sectionSeparator",
+        "type": "boolean",
+        "label": "Separator before running apps",
+        "defaultValue": true
+      },
+      {
+        "key": "maxLabelLength",
+        "type": "integer",
+        "label": "Maximum label length",
+        "min": 4,
+        "max": 40,
+        "step": 1,
+        "defaultValue": 14
+      },
+      {
+        "key": "maxRunningWindows",
+        "type": "integer",
+        "label": "Maximum running windows",
+        "min": 1,
+        "max": 30,
+        "step": 1,
+        "defaultValue": 12
+      },
+      {
+        "key": "excludedClasses",
+        "type": "string",
+        "label": "Excluded classes",
+        "description": "Comma-separated, case-insensitive regular expressions for windows to hide.",
+        "defaultValue": ""
+      }
+    ]
+  }
+}
