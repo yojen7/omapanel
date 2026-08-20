@@ -8,7 +8,7 @@ import qs.Ui
 BarWidget {
   id: taskbar
 
-  moduleName: "xava.app-taskbar"
+  moduleName: "atagulalan.omapanel"
 
   readonly property string defaultPinnedApps: '[{"label":"Zen","match":"^zen$","launch":"omarchy-launch-browser","icon":"zen-browser","desktopId":"zen"},{"label":"Cursor","match":"^cursor$","launch":"uwsm-app -- cursor","icon":"co.anysphere.cursor","desktopId":"cursor"}]'
   readonly property var pinnedApps: parsePinnedApps(setting("pinnedApps", defaultPinnedApps))
@@ -124,7 +124,7 @@ BarWidget {
       try {
         parsed = JSON.parse(raw)
       } catch (exception) {
-        console.warn("xava.app-taskbar: pinnedApps is not valid JSON", exception)
+        console.warn("atagulalan.omapanel: pinnedApps is not valid JSON", exception)
         parsed = []
       }
     }
@@ -169,7 +169,7 @@ BarWidget {
         if (matcher.test(values[i])) return true
       }
     } catch (exception) {
-      console.warn("xava.app-taskbar: invalid class pattern", pattern, exception)
+      console.warn("atagulalan.omapanel: invalid class pattern", pattern, exception)
     }
     return false
   }
@@ -354,7 +354,7 @@ BarWidget {
     if (/^#[0-9a-f]{8}$/i.test(candidate)) {
       return "#" + candidate.slice(7, 9) + candidate.slice(1, 7)
     }
-    console.warn("xava.app-taskbar: invalid color; use #RRGGBB or #RRGGBBAA", candidate)
+    console.warn("atagulalan.omapanel: invalid color; use #RRGGBB or #RRGGBBAA", candidate)
     return fallback
   }
 

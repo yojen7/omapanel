@@ -9,8 +9,7 @@ launch-or-focus behavior in a compact bar widget.
      pinned                 running
 ```
 
-The plugin ID remains `xava.app-taskbar` for compatibility with existing
-Omarchy configurations.
+The plugin uses the permanent namespaced ID `atagulalan.omapanel`.
 
 ## Highlights
 
@@ -60,7 +59,7 @@ The manifest places the widget in the left section by default. Move it wherever
 you prefer:
 
 ```bash
-omarchy bar move xava.app-taskbar --section center
+omarchy bar move atagulalan.omapanel --section center
 ```
 
 If plugin discovery ever needs to be forced manually:
@@ -72,8 +71,8 @@ omarchy-shell shell rescanPlugins
 ## Updating and removing
 
 ```bash
-omarchy plugin update xava.app-taskbar --yes
-omarchy plugin remove xava.app-taskbar --yes
+omarchy plugin update atagulalan.omapanel --yes
+omarchy plugin remove atagulalan.omapanel --yes
 ```
 
 ## Using OmaPanel
@@ -83,7 +82,7 @@ application menu.
 
 Use the gear button in the upper-right corner of that menu to open
 **OmaPanel Settings**. Changes are written immediately to the
-`xava.app-taskbar` entry in:
+`atagulalan.omapanel` entry in:
 
 ```text
 ~/.config/omarchy/shell.json

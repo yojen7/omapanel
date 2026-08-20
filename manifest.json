@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "xava.app-taskbar",
+  "id": "atagulalan.omapanel",
   "name": "OmaPanel",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "author": "xava",
   "license": "MIT",
   "description": "Pinned launch-or-focus applications followed by live Hyprland windows.",

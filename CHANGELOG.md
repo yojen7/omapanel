@@ -2,6 +2,11 @@
 
 All notable changes to OmaPanel are documented here.
 
+## 1.9.0
+
+- Changed the permanent plugin ID from `xava.app-taskbar` to
+  `atagulalan.omapanel` to match the publisher namespace and product name.
+
 ## 1.8.0
 
 - Renamed the user-facing plugin and settings panel to OmaPanel.

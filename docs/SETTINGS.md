@@ -1,6 +1,6 @@
 # Settings reference
 
-OmaPanel stores its configuration in the `xava.app-taskbar` widget entry in:
+OmaPanel stores its configuration in the `atagulalan.omapanel` widget entry in:
 
 ```text
 ~/.config/omarchy/shell.json
