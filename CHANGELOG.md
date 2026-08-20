@@ -4,8 +4,10 @@ All notable changes to OmaPanel are documented here.
 
 ## 1.9.0
 
-- Changed the permanent plugin ID from `xava.app-taskbar` to
-  `atagulalan.omapanel` to match the publisher namespace and product name.
+- Adopted the permanent plugin ID `atagulalan.omapanel` to match the publisher
+  namespace and product name.
+- Aligned author metadata with the publisher namespace and added a marketplace
+  preview image.
 
 ## 1.8.0
 
