@@ -11,6 +11,10 @@ writes toggle, dropdown, number, and text changes immediately. Press Escape to
 close the panel. Pinned applications are managed through the right-click menu
 instead of editing raw JSON in the form.
 
+Each closed pinned application occupies one launcher item. When it has running
+windows, every matching window is rendered as its own adjacent pinned item;
+those windows are not duplicated in the dynamic running section.
+
 ## Behavior
 
 | Key | Type | Default | Description |
@@ -24,6 +28,25 @@ instead of editing raw JSON in the form.
 | `labelFormat` | string | `[APP_NAME] - [WINDOW_TITLE]` | Label template for open windows |
 | `maxRunningWindows` | integer | `12` | Maximum dynamic windows; range 1–30 |
 | `excludedClasses` | string | empty | Comma-separated, case-insensitive class regular expressions |
+
+### Click actions
+
+The Behavior tab configures `leftClickAction`, `rightClickAction`,
+`middleClickAction`, `ctrlClickAction`, `shiftClickAction`, and
+`altClickAction`. Modifier actions apply to left click. Available actions are:
+
+- `Focus or Launch`;
+- `Open Context Menu`;
+- `New Window`;
+- `Close Window`;
+- `Close All Windows`;
+- `Toggle Pin`;
+- `Open Settings`;
+- `Do Nothing`.
+
+The defaults preserve the original controls: left click and modified left
+click focus or launch, right click opens the context menu, and middle click
+does nothing. For combined modifiers, Ctrl takes priority over Shift, then Alt.
 
 ### Label placeholders
 
@@ -50,7 +73,7 @@ If no window title is available, OmaPanel displays only the application name.
 | `fixedItemWidth` | integer | `160` | 32–480 | Width of open items in Fixed mode |
 | `maxAdaptiveWidth` | integer | `280` | 32–640 | Maximum item width in Adaptive mode |
 | `maxLabelLength` | integer | `14` | 4–40 | Character limit applied before measuring |
-| `fontSize` | integer | `12` | 8–24 | Label font size |
+| `fontSize` | numeric string or empty | empty | 8–24, or empty | Label font size; empty follows the theme automatically |
 | `normalFontWeight` | integer | `400` | 1–1000 | Normal label weight |
 | `hoverFontWeight` | integer | `500` | 1–1000 | Hovered label weight |
 | `activeFontWeight` | integer | `600` | 1–1000 | Active label weight |
@@ -58,6 +81,8 @@ If no window title is available, OmaPanel displays only the application name.
 Adaptive mode follows the measured content up to `maxAdaptiveWidth`. Fixed
 mode assigns `fixedItemWidth` to open items. Overflowing labels are
 ellipsized in both modes. Closed icon-only pinned applications remain compact.
+Clear **Font size** in the built-in settings panel to use the theme's body
+font size automatically.
 
 ## Size and spacing
 

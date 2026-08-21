@@ -16,10 +16,14 @@ The plugin uses the permanent namespaced ID `atagulalan.omapanel`.
 ## Highlights
 
 - Pinned applications stay available even when they are closed.
+- Multiple windows belonging to one pinned application appear as adjacent
+  taskbar items instead of being collapsed into a single window.
 - Left-click launches a closed application or focuses an existing window.
 - Unpinned Hyprland windows appear automatically.
 - Running windows can be grouped by workspace with separators between groups.
 - Closed pinned applications can stay compact with icon-only mode.
+- A dedicated Behavior tab maps left, right, middle, Ctrl+left, Shift+left,
+  and Alt+left clicks to focus, launch, window, pin, menu, or settings actions.
 - Normal, hover, and active states each have independent foreground,
   background, and font-weight controls.
 - Active-window indicators support `Underline`, `Top`, `Dot`, and `None`.
