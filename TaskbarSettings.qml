@@ -138,7 +138,7 @@ KeyboardPanel {
         spacing: Style.space(6)
 
         Button {
-          width: (parent.width - parent.spacing * 2) / 3
+          width: (parent.width - parent.spacing * 3) / 4
           text: "General"
           selected: settingsPopup.currentTab === 0
           focusable: true
@@ -150,8 +150,8 @@ KeyboardPanel {
         }
 
         Button {
-          width: (parent.width - parent.spacing * 2) / 3
-          text: "Layout"
+          width: (parent.width - parent.spacing * 3) / 4
+          text: "Behavior"
           selected: settingsPopup.currentTab === 1
           focusable: true
           bordered: true
@@ -162,8 +162,8 @@ KeyboardPanel {
         }
 
         Button {
-          width: (parent.width - parent.spacing * 2) / 3
-          text: "Appearance"
+          width: (parent.width - parent.spacing * 3) / 4
+          text: "Layout"
           selected: settingsPopup.currentTab === 2
           focusable: true
           bordered: true
@@ -171,6 +171,18 @@ KeyboardPanel {
           accent: Color.accent
           fontFamily: settingsPopup.contentFontFamily
           onClicked: settingsPopup.selectTab(2)
+        }
+
+        Button {
+          width: (parent.width - parent.spacing * 3) / 4
+          text: "Appearance"
+          selected: settingsPopup.currentTab === 3
+          focusable: true
+          bordered: true
+          foreground: settingsPopup.contentForeground
+          accent: Color.accent
+          fontFamily: settingsPopup.contentFontFamily
+          onClicked: settingsPopup.selectTab(3)
         }
       }
 
@@ -183,7 +195,7 @@ KeyboardPanel {
         PanelSeparator { width: parent.width }
         PanelSectionHeader {
           width: parent.width
-          text: "BEHAVIOR"
+          text: "WINDOWS & LABELS"
           foreground: settingsPopup.contentForeground
           fontFamily: settingsPopup.contentFontFamily
         }
@@ -301,8 +313,100 @@ KeyboardPanel {
       }
 
       Column {
-        id: layoutSizeTab
+        id: behaviorTab
         visible: settingsPopup.currentTab === 1
+        width: parent.width
+        spacing: Style.space(12)
+
+        readonly property var actionOptions: [
+          "Focus or Launch", "Open Context Menu", "New Window", "Close Window",
+          "Close All Windows", "Toggle Pin", "Open Settings", "Do Nothing"
+        ]
+
+        PanelSeparator { width: parent.width }
+        PanelSectionHeader {
+          width: parent.width
+          text: "CLICK ACTIONS"
+          foreground: settingsPopup.contentForeground
+          fontFamily: settingsPopup.contentFontFamily
+        }
+
+        Row {
+          width: parent.width
+          spacing: Style.space(10)
+
+          SettingDropdown {
+            width: (parent.width - parent.spacing) / 2
+            settingKey: "leftClickAction"
+            settingLabel: "Left click"
+            fallbackValue: "Focus or Launch"
+            settingOptions: behaviorTab.actionOptions
+          }
+
+          SettingDropdown {
+            width: (parent.width - parent.spacing) / 2
+            settingKey: "rightClickAction"
+            settingLabel: "Right click"
+            fallbackValue: "Open Context Menu"
+            settingOptions: behaviorTab.actionOptions
+          }
+        }
+
+        Row {
+          width: parent.width
+          spacing: Style.space(10)
+
+          SettingDropdown {
+            width: (parent.width - parent.spacing) / 2
+            settingKey: "middleClickAction"
+            settingLabel: "Middle click"
+            fallbackValue: "Do Nothing"
+            settingOptions: behaviorTab.actionOptions
+          }
+
+          SettingDropdown {
+            width: (parent.width - parent.spacing) / 2
+            settingKey: "ctrlClickAction"
+            settingLabel: "Ctrl + left click"
+            fallbackValue: "Focus or Launch"
+            settingOptions: behaviorTab.actionOptions
+          }
+        }
+
+        Row {
+          width: parent.width
+          spacing: Style.space(10)
+
+          SettingDropdown {
+            width: (parent.width - parent.spacing) / 2
+            settingKey: "shiftClickAction"
+            settingLabel: "Shift + left click"
+            fallbackValue: "Focus or Launch"
+            settingOptions: behaviorTab.actionOptions
+          }
+
+          SettingDropdown {
+            width: (parent.width - parent.spacing) / 2
+            settingKey: "altClickAction"
+            settingLabel: "Alt + left click"
+            fallbackValue: "Focus or Launch"
+            settingOptions: behaviorTab.actionOptions
+          }
+        }
+
+        Text {
+          width: parent.width
+          text: "For combined modifiers, Ctrl takes priority over Shift, then Alt."
+          color: Util.alpha(settingsPopup.contentForeground, 0.58)
+          font.family: settingsPopup.contentFontFamily
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+        }
+      }
+
+      Column {
+        id: layoutSizeTab
+        visible: settingsPopup.currentTab === 2
         width: parent.width
         spacing: Style.space(12)
 
@@ -327,13 +431,13 @@ KeyboardPanel {
           maximumValue: 32
         }
 
-        SettingNumber {
+        SettingOptionalNumber {
           width: (parent.width - parent.spacing) / 2
           settingKey: "fontSize"
           settingLabel: "Font size"
-          fallbackValue: 12
           minimumValue: 8
           maximumValue: 24
+          placeholder: "Auto"
         }
       }
 
@@ -387,7 +491,7 @@ KeyboardPanel {
 
       Column {
         id: appearanceTab
-        visible: settingsPopup.currentTab === 2
+        visible: settingsPopup.currentTab === 3
         width: parent.width
         spacing: Style.space(12)
 
@@ -590,7 +694,7 @@ KeyboardPanel {
 
       Column {
         id: layoutFilterTab
-        visible: settingsPopup.currentTab === 1
+        visible: settingsPopup.currentTab === 2
         width: parent.width
         spacing: Style.space(12)
 
@@ -699,6 +803,61 @@ KeyboardPanel {
     accent: Color.accent
     fontFamily: settingsPopup.contentFontFamily
     onModified: function(nextValue) { settingsPopup.change(settingKey, nextValue) }
+  }
+
+  component SettingOptionalNumber: Column {
+    required property string settingKey
+    required property string settingLabel
+    required property int minimumValue
+    required property int maximumValue
+    property string placeholder: "Auto"
+
+    spacing: Style.spacing.md
+
+    Text {
+      width: parent.width
+      text: parent.settingLabel
+      color: Qt.darker(settingsPopup.contentForeground, 1.4)
+      font.family: settingsPopup.contentFontFamily
+      font.pixelSize: Style.font.bodySmall
+    }
+
+    TextField {
+      width: parent.width
+      text: {
+        var current = settingsPopup.value(parent.settingKey, "")
+        return current === undefined || current === null ? "" : String(current).trim()
+      }
+      placeholderText: parent.placeholder
+      foreground: settingsPopup.contentForeground
+      accent: Color.accent
+      font.family: settingsPopup.contentFontFamily
+      horizontalAlignment: TextInput.AlignHCenter
+      inputMethodHints: Qt.ImhDigitsOnly
+      maximumLength: String(parent.maximumValue).length
+      onTextEdited: {
+        if (text.trim() === "") settingsPopup.change(parent.settingKey, "")
+      }
+      onEditingFinished: {
+        var nextValue = text.trim()
+        if (nextValue === "") {
+          settingsPopup.change(parent.settingKey, "")
+          return
+        }
+
+        var parsed = Number(nextValue)
+        if (isNaN(parsed)) {
+          text = ""
+          settingsPopup.change(parent.settingKey, "")
+          return
+        }
+
+        var clamped = Math.max(parent.minimumValue,
+          Math.min(parent.maximumValue, Math.round(parsed)))
+        text = String(clamped)
+        settingsPopup.change(parent.settingKey, String(clamped))
+      }
+    }
   }
 
   component SettingText: Column {

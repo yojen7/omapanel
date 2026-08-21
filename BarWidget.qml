@@ -17,6 +17,18 @@ BarWidget {
   readonly property bool showIcons: setting("showIcons", true) === true
   readonly property bool showLabels: setting("showLabels", true) === true
   readonly property bool iconOnlyWhenClosed: setting("iconOnlyWhenClosed", true) === true
+  readonly property string leftClickAction: normalizedClickAction(
+    setting("leftClickAction", "Focus or Launch"), "Focus or Launch")
+  readonly property string rightClickAction: normalizedClickAction(
+    setting("rightClickAction", "Open Context Menu"), "Open Context Menu")
+  readonly property string middleClickAction: normalizedClickAction(
+    setting("middleClickAction", "Do Nothing"), "Do Nothing")
+  readonly property string ctrlClickAction: normalizedClickAction(
+    setting("ctrlClickAction", "Focus or Launch"), "Focus or Launch")
+  readonly property string shiftClickAction: normalizedClickAction(
+    setting("shiftClickAction", "Focus or Launch"), "Focus or Launch")
+  readonly property string altClickAction: normalizedClickAction(
+    setting("altClickAction", "Focus or Launch"), "Focus or Launch")
   readonly property string labelFormat: String(setting("labelFormat", "[APP_NAME] - [WINDOW_TITLE]"))
   readonly property string widthMode: String(setting("widthMode", "Adaptive"))
   readonly property int fixedItemWidth: Math.max(24, Number(setting("fixedItemWidth", 160)))
@@ -27,7 +39,8 @@ BarWidget {
   readonly property int itemVerticalPadding: Math.max(0, Number(setting("itemVerticalPadding", 12)))
   readonly property int iconLabelSpacing: Math.max(0, Number(setting("iconLabelSpacing", 8)))
   readonly property int iconSize: Math.max(8, Number(setting("iconSize", 18)))
-  readonly property int fontSize: Math.max(8, Number(setting("fontSize", 12)))
+  readonly property int automaticFontSize: Math.max(1, Math.round(Style.font.body))
+  readonly property int fontSize: resolvedFontSize(setting("fontSize", ""))
   readonly property int normalFontWeight: Math.max(1, Math.min(1000, Number(setting("normalFontWeight", 400))))
   readonly property int hoverFontWeight: Math.max(1, Math.min(1000, Number(setting("hoverFontWeight", 500))))
   readonly property int activeFontWeight: Math.max(1, Math.min(1000, Number(setting("activeFontWeight", 600))))
@@ -86,6 +99,24 @@ BarWidget {
   readonly property bool contextIsPinned: contextPinnedIndex >= 0
   readonly property bool contextCanLaunch: !!(contextEntry || (contextApp && contextApp.launch))
 
+  readonly property var pinnedItems: {
+    var revision = hyprlandRevision
+    var result = []
+
+    for (var i = 0; i < pinnedApps.length; i++) {
+      var app = pinnedApps[i]
+      var windows = windowsForDescriptor(app, null)
+      if (windows.length === 0) {
+        result.push({ app: app, window: null })
+        continue
+      }
+      for (var j = 0; j < windows.length; j++) {
+        result.push({ app: app, window: windows[j] })
+      }
+    }
+    return result
+  }
+
   readonly property var runningWindows: {
     var revision = hyprlandRevision
     var values = Hyprland.toplevels && Hyprland.toplevels.values
@@ -122,6 +153,26 @@ BarWidget {
 
   Behavior on implicitWidth {
     NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+  }
+
+  function resolvedFontSize(rawValue) {
+    if (rawValue === undefined || rawValue === null
+        || String(rawValue).trim() === "") {
+      return automaticFontSize
+    }
+
+    var parsed = Number(rawValue)
+    return isNaN(parsed)
+      ? automaticFontSize : Math.max(8, Math.min(24, Math.round(parsed)))
+  }
+
+  function normalizedClickAction(value, fallback) {
+    var action = String(value || "")
+    var allowed = [
+      "Focus or Launch", "Open Context Menu", "New Window", "Close Window",
+      "Close All Windows", "Toggle Pin", "Open Settings", "Do Nothing"
+    ]
+    return allowed.indexOf(action) >= 0 ? action : fallback
   }
 
   function parsePinnedApps(raw) {
@@ -290,17 +341,6 @@ BarWidget {
       if (patternMatches(patterns[i].trim(), candidates)) return true
     }
     return false
-  }
-
-  function findPinnedWindow(app) {
-    if (activeWindow && appMatchesWindow(app, activeWindow)) return activeWindow
-
-    var values = Hyprland.toplevels && Hyprland.toplevels.values
-      ? Hyprland.toplevels.values : []
-    for (var i = 0; i < values.length; i++) {
-      if (appMatchesWindow(app, values[i])) return values[i]
-    }
-    return null
   }
 
   function windowClass(toplevel) {
@@ -517,6 +557,67 @@ BarWidget {
     if (app && app.launch) runLaunch(app.launch)
   }
 
+  function launchNewWindow(app, toplevel) {
+    var descriptor = descriptorFor(app, toplevel)
+    var entry = desktopEntryFor(descriptor, toplevel)
+    if (entry && bar && bar.shell && bar.shell.appLibrary) {
+      var id = normalizeDesktopId(entry.id || descriptor.desktopId)
+      if (id) {
+        bar.shell.appLibrary.launch(
+          id, asPlainUiText(String(entry.name || descriptor.label || id)))
+        return
+      }
+    }
+    if (descriptor.launch) runLaunch(descriptor.launch)
+  }
+
+  function clickAction(button, modifiers) {
+    if (button === Qt.LeftButton) {
+      if (modifiers & Qt.ControlModifier) return ctrlClickAction
+      if (modifiers & Qt.ShiftModifier) return shiftClickAction
+      if (modifiers & Qt.AltModifier) return altClickAction
+      return leftClickAction
+    }
+    if (button === Qt.RightButton) return rightClickAction
+    if (button === Qt.MiddleButton) return middleClickAction
+    return "Do Nothing"
+  }
+
+  function performClickAction(action, app, toplevel, anchor) {
+    if (anchor && anchor.bar) anchor.bar.hideTooltip(anchor)
+    if (action === "Do Nothing") return
+    if (action === "Open Context Menu") {
+      openContextMenu(anchor, app, toplevel)
+      return
+    }
+    if (action === "Open Settings") {
+      contextAnchor = anchor
+      openSettingsPanel()
+      return
+    }
+    if (action === "Toggle Pin") {
+      close()
+      togglePinFor(app, toplevel)
+      return
+    }
+
+    close()
+    if (action === "Focus or Launch") {
+      activateOrLaunch(app, toplevel)
+    } else if (action === "New Window") {
+      launchNewWindow(app, toplevel)
+    } else if (action === "Close Window") {
+      closeWindow(toplevel)
+    } else if (action === "Close All Windows") {
+      var targets = windowsForDescriptor(app, toplevel)
+      for (var i = 0; i < targets.length; i++) closeWindow(targets[i])
+    }
+  }
+
+  function handleConfiguredClick(app, toplevel, anchor, button, modifiers) {
+    performClickAction(clickAction(button, modifiers), app, toplevel, anchor)
+  }
+
   function openContextMenu(anchor, app, toplevel) {
     settingsPanelOpen = false
     contextAnchor = anchor
@@ -568,26 +669,27 @@ BarWidget {
     bar.shell.updateEntryInline(moduleName, nextSettings)
   }
 
-  function toggleContextPin() {
+  function togglePinFor(app, toplevel) {
     var next = pinnedApps.slice()
-    if (contextPinnedIndex >= 0) next.splice(contextPinnedIndex, 1)
-    else if (contextApp && contextApp.match) next.push(descriptorFor(contextApp, contextWindow))
-    close()
+    var descriptor = descriptorFor(app, toplevel)
+    var index = pinnedIndex(descriptor, toplevel)
+    if (index >= 0) next.splice(index, 1)
+    else if (descriptor.match) next.push(descriptor)
     persistPinnedApps(next)
   }
 
-  function launchContextNewWindow() {
-    if (contextEntry && bar && bar.shell && bar.shell.appLibrary) {
-      var id = normalizeDesktopId(contextEntry.id || (contextApp ? contextApp.desktopId : ""))
-      if (id) {
-        bar.shell.appLibrary.launch(
-          id,
-          asPlainUiText(String(contextEntry.name || (contextApp ? contextApp.label : id))))
-      }
-    } else if (contextApp && contextApp.launch) {
-      runLaunch(contextApp.launch)
-    }
+  function toggleContextPin() {
+    var app = contextApp
+    var toplevel = contextWindow
     close()
+    togglePinFor(app, toplevel)
+  }
+
+  function launchContextNewWindow() {
+    var app = contextApp
+    var toplevel = contextWindow
+    close()
+    launchNewWindow(app, toplevel)
   }
 
   function executeDesktopAction(action) {
@@ -642,20 +744,16 @@ BarWidget {
     }
 
     Repeater {
-      model: taskbar.pinnedApps
+      model: taskbar.pinnedItems
 
       AppChip {
         required property var modelData
 
-        app: modelData
-        appWindow: {
-          var revision = taskbar.hyprlandRevision
-          var focused = taskbar.activeWindow
-          return taskbar.findPinnedWindow(modelData)
-        }
+        app: modelData.app
+        appWindow: modelData.window
         pinned: true
-        displayLabel: taskbar.formattedWindowLabel(modelData.label, appWindow)
-        iconName: modelData.icon || taskbar.windowIcon(appWindow)
+        displayLabel: taskbar.formattedWindowLabel(modelData.app.label, appWindow)
+        iconName: modelData.app.icon || taskbar.windowIcon(appWindow)
       }
     }
 
@@ -954,6 +1052,7 @@ BarWidget {
     required property bool pinned
     required property string displayLabel
     required property string iconName
+    property bool pointerHovered: false
 
     readonly property bool isActive: appWindow !== null && taskbar.activeWindow === appWindow
     readonly property bool isClosedPinned: pinned && appWindow === null
@@ -982,10 +1081,10 @@ BarWidget {
     readonly property real labelExtent: effectiveShowLabels
       ? Math.max(0, calculatedWidth - nonLabelExtent) : 0
     readonly property real contentHeight: Math.max(effectiveShowIcons ? iconExtent : 0, labelHeight)
-    readonly property color foregroundColor: tooltipHovered
+    readonly property color foregroundColor: pointerHovered
       ? taskbar.hoverTextColor
       : (isActive ? taskbar.activeTextColor : taskbar.normalTextColor)
-    readonly property int foregroundWeight: tooltipHovered
+    readonly property int foregroundWeight: pointerHovered
       ? taskbar.hoverFontWeight
       : (isActive ? taskbar.activeFontWeight : taskbar.normalFontWeight)
 
@@ -994,6 +1093,7 @@ BarWidget {
     labelVisible: false
     hasVisualContent: true
     keepSpace: true
+    interactive: false
     useActiveColor: false
     dimmed: false
     fixedWidth: calculatedWidth
@@ -1001,15 +1101,6 @@ BarWidget {
       contentHeight + Style.space(taskbar.itemVerticalPadding * 2))
     tooltipText: taskbar.asPlainUiText(displayLabel)
       + (pinned && appWindow === null ? "\nClick to open" : "\nClick to focus")
-
-    onPressed: function(button) {
-      if (button === Qt.RightButton) {
-        taskbar.openContextMenu(chip, app, appWindow)
-      } else if (button === Qt.LeftButton) {
-        taskbar.close()
-        taskbar.activateOrLaunch(app, appWindow)
-      }
-    }
 
     TextMetrics {
       id: labelMetrics
@@ -1026,9 +1117,9 @@ BarWidget {
       anchors.fill: parent
       anchors.margins: Style.space(1)
       radius: Math.max(2, Style.cornerRadius)
-      color: chip.tooltipHovered ? taskbar.hoverBackgroundColor
+      color: chip.pointerHovered ? taskbar.hoverBackgroundColor
         : (persistentActive ? taskbar.activeBackgroundColor : taskbar.normalBackgroundColor)
-      opacity: chip.tooltipHovered || persistentActive || taskbar.normalBackgroundEnabled ? 1 : 0
+      opacity: chip.pointerHovered || persistentActive || taskbar.normalBackgroundEnabled ? 1 : 0
 
       Behavior on opacity {
         NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
@@ -1106,6 +1197,26 @@ BarWidget {
 
       Behavior on width {
         NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+      }
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      z: 10
+      acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onEntered: {
+        chip.pointerHovered = true
+        if (chip.bar) chip.bar.showTooltip(chip, chip.tooltipText)
+      }
+      onExited: {
+        chip.pointerHovered = false
+        if (chip.bar) chip.bar.hideTooltip(chip)
+      }
+      onClicked: function(mouse) {
+        taskbar.handleConfiguredClick(
+          chip.app, chip.appWindow, chip, mouse.button, mouse.modifiers)
       }
     }
   }

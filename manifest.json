@@ -32,6 +32,12 @@
       "showIcons": true,
       "showLabels": true,
       "iconOnlyWhenClosed": true,
+      "leftClickAction": "Focus or Launch",
+      "rightClickAction": "Open Context Menu",
+      "middleClickAction": "Do Nothing",
+      "ctrlClickAction": "Focus or Launch",
+      "shiftClickAction": "Focus or Launch",
+      "altClickAction": "Focus or Launch",
       "labelFormat": "[APP_NAME] - [WINDOW_TITLE]",
       "widthMode": "Adaptive",
       "fixedItemWidth": 160,
@@ -42,7 +48,7 @@
       "itemVerticalPadding": 12,
       "iconLabelSpacing": 8,
       "iconSize": 18,
-      "fontSize": 12,
+      "fontSize": "",
       "normalFontWeight": 400,
       "hoverFontWeight": 500,
       "activeFontWeight": 600,
@@ -103,6 +109,102 @@
         "label": "Icon only when closed",
         "description": "Pinned apps show only their icon until a matching window opens.",
         "defaultValue": true
+      },
+      {
+        "key": "leftClickAction",
+        "type": "enum",
+        "label": "Left-click action",
+        "options": [
+          "Focus or Launch",
+          "Open Context Menu",
+          "New Window",
+          "Close Window",
+          "Close All Windows",
+          "Toggle Pin",
+          "Open Settings",
+          "Do Nothing"
+        ],
+        "defaultValue": "Focus or Launch"
+      },
+      {
+        "key": "rightClickAction",
+        "type": "enum",
+        "label": "Right-click action",
+        "options": [
+          "Focus or Launch",
+          "Open Context Menu",
+          "New Window",
+          "Close Window",
+          "Close All Windows",
+          "Toggle Pin",
+          "Open Settings",
+          "Do Nothing"
+        ],
+        "defaultValue": "Open Context Menu"
+      },
+      {
+        "key": "middleClickAction",
+        "type": "enum",
+        "label": "Middle-click action",
+        "options": [
+          "Focus or Launch",
+          "Open Context Menu",
+          "New Window",
+          "Close Window",
+          "Close All Windows",
+          "Toggle Pin",
+          "Open Settings",
+          "Do Nothing"
+        ],
+        "defaultValue": "Do Nothing"
+      },
+      {
+        "key": "ctrlClickAction",
+        "type": "enum",
+        "label": "Ctrl + left-click action",
+        "options": [
+          "Focus or Launch",
+          "Open Context Menu",
+          "New Window",
+          "Close Window",
+          "Close All Windows",
+          "Toggle Pin",
+          "Open Settings",
+          "Do Nothing"
+        ],
+        "defaultValue": "Focus or Launch"
+      },
+      {
+        "key": "shiftClickAction",
+        "type": "enum",
+        "label": "Shift + left-click action",
+        "options": [
+          "Focus or Launch",
+          "Open Context Menu",
+          "New Window",
+          "Close Window",
+          "Close All Windows",
+          "Toggle Pin",
+          "Open Settings",
+          "Do Nothing"
+        ],
+        "defaultValue": "Focus or Launch"
+      },
+      {
+        "key": "altClickAction",
+        "type": "enum",
+        "label": "Alt + left-click action",
+        "options": [
+          "Focus or Launch",
+          "Open Context Menu",
+          "New Window",
+          "Close Window",
+          "Close All Windows",
+          "Toggle Pin",
+          "Open Settings",
+          "Do Nothing"
+        ],
+        "defaultValue": "Focus or Launch"
       },
       {
         "key": "labelFormat",
@@ -201,12 +303,10 @@
       },
       {
         "key": "fontSize",
-        "type": "integer",
+        "type": "string",
         "label": "Label font size",
-        "min": 8,
-        "max": 24,
-        "step": 1,
-        "defaultValue": 12
+        "description": "Optional pixel size from 8 to 24. Leave empty to follow the theme automatically.",
+        "defaultValue": ""
       },
       {
         "key": "normalFontWeight",
