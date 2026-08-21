@@ -58,6 +58,13 @@ BarWidget {
   readonly property bool sectionSeparator: setting("sectionSeparator", true) === true
   readonly property int maxLabelLength: Math.max(4, Number(setting("maxLabelLength", 14)))
   readonly property int maxRunningWindows: Math.max(1, Number(setting("maxRunningWindows", 12)))
+  readonly property int maxUntrustedTextLength: 512
+  readonly property int maxClassLength: 96
+  readonly property int maxRegexPatternLength: 256
+  readonly property int maxLaunchLength: 4096
+  readonly property int maxIconLength: 512
+  readonly property int maxDesktopIdLength: 128
+  readonly property string fallbackIconName: "application-x-executable"
   readonly property string excludedClasses: String(setting("excludedClasses", ""))
   readonly property var activeWindow: Hyprland.activeToplevel
   property int hyprlandRevision: 0
@@ -137,13 +144,88 @@ BarWidget {
         && String(app.match || "").trim() !== ""
     }).map(function(app) {
       return {
-        label: String(app.label || "App").trim(),
+        label: asPlainUiText(String(app.label || "App").trim()) || "App",
         match: String(app.match || "").trim(),
-        launch: String(app.launch || "").trim(),
-        icon: String(app.icon || "").trim(),
-        desktopId: String(app.desktopId || "").trim()
+        launch: clampedLaunch(app.launch),
+        icon: sanitizeIconName(app.icon),
+        desktopId: normalizeDesktopId(app.desktopId)
       }
     })
+  }
+
+  // Qt Text defaults to AutoText (mightBeRichText). Untrusted Hyprland titles /
+  // app names must never be parsed as HTML, including in bar tooltips we do
+  // not control. Replace angle brackets so tags like <img src="…"> stay literal.
+  function asPlainUiText(value) {
+    var text = String(value || "")
+    if (text.length > maxUntrustedTextLength)
+      text = text.slice(0, maxUntrustedTextLength)
+    return text
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+      .replace(/[\r\n]+/g, " ")
+      .replace(/&lt;/gi, "\uFF1C")
+      .replace(/&gt;/gi, "\uFF1E")
+      .replace(/&#0*60;?/gi, "\uFF1C")
+      .replace(/&#x0*3c;?/gi, "\uFF1C")
+      .replace(/</g, "\uFF1C")
+      .replace(/>/g, "\uFF1E")
+  }
+
+  function sanitizeClassValue(value) {
+    var text = String(value || "").replace(/[\u0000-\u001F]/g, "").trim()
+    if (text.length > maxClassLength) text = text.slice(0, maxClassLength)
+    return text
+  }
+
+  function isPlausibleAppId(value) {
+    return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(value || ""))
+  }
+
+  function normalizeDesktopId(value) {
+    var text = String(value || "").trim()
+    if (text.slice(-8).toLowerCase() === ".desktop") text = text.slice(0, -8)
+    if (!text || text.length > maxDesktopIdLength) return ""
+    if (text.indexOf("..") >= 0 || /[\\/]/.test(text)) return ""
+    return isPlausibleAppId(text) ? text : ""
+  }
+
+  function clampedLaunch(value) {
+    var text = String(value || "").trim()
+    if (text.length > maxLaunchLength) text = text.slice(0, maxLaunchLength)
+    return text
+  }
+
+  function isRemoteIconSource(value) {
+    var text = String(value || "").trim()
+    if (!text || text.length > maxIconLength) return true
+    if (/[\u0000-\u001F]/.test(text)) return true
+    var lower = text.toLowerCase()
+    if (/^(https?|ftp|ftps|sftp|data|mailto|smb|nfs|webdav|qrc):/.test(lower)) return true
+    if (lower.indexOf("file:") === 0 && lower.indexOf("file:///") !== 0) return true
+    return false
+  }
+
+  function sanitizeIconName(icon) {
+    var value = String(icon || "").trim()
+    if (!value || isRemoteIconSource(value)) return fallbackIconName
+    if (value.indexOf("image://") === 0) return value.slice(0, maxIconLength)
+    if (value.indexOf("file:///") === 0 || value.charAt(0) === "/") {
+      if (value.indexOf("..") >= 0) return fallbackIconName
+      return value.slice(0, maxIconLength)
+    }
+    if (value.indexOf("/") >= 0 || value.indexOf(":") >= 0) return fallbackIconName
+    return value.slice(0, maxIconLength)
+  }
+
+  function fallbackIconSource() {
+    return Quickshell.iconPath(fallbackIconName, true)
+  }
+
+  function isUnsafeClassPattern(pattern) {
+    if (!pattern || pattern.length > maxRegexPatternLength) return true
+    if (/\{\s*\d{3,}/.test(pattern)) return true
+    if (/\((?:[^()]*[+*][^()]*)\)[+*?]/.test(pattern)) return true
+    return false
   }
 
   function windowCandidates(toplevel) {
@@ -155,27 +237,42 @@ BarWidget {
       ipc && ipc.initialClass ? ipc.initialClass : "",
       wayland && wayland.appId ? wayland.appId : ""
     ].map(function(value) {
-      return String(value || "").trim()
+      return sanitizeClassValue(value)
     }).filter(function(value) {
       return value !== ""
     })
   }
 
   function patternMatches(pattern, values) {
-    if (!pattern) return false
+    var source = String(pattern || "").trim()
+    if (!source || isUnsafeClassPattern(source)) {
+      if (source) console.warn("atagulalan.omapanel: rejected class pattern", source)
+      return false
+    }
     try {
-      var matcher = new RegExp(pattern, "i")
+      var matcher = new RegExp(source, "i")
       for (var i = 0; i < values.length; i++) {
         if (matcher.test(values[i])) return true
       }
     } catch (exception) {
-      console.warn("atagulalan.omapanel: invalid class pattern", pattern, exception)
+      console.warn("atagulalan.omapanel: invalid class pattern", source, exception)
     }
     return false
   }
 
   function appMatchesWindow(app, toplevel) {
-    return app && patternMatches(String(app.match || ""), windowCandidates(toplevel))
+    if (!app || !patternMatches(String(app.match || ""), windowCandidates(toplevel)))
+      return false
+
+    // When a pin declares desktopId, refuse windows whose resolved desktop entry
+    // is a different app (limits broad regex + wrong Electron/.desktop pairing).
+    var expected = normalizeDesktopId(app.desktopId)
+    if (!expected) return true
+    var entry = windowDesktopEntry(toplevel)
+    if (!entry) return true
+    var actual = normalizeDesktopId(entry.id)
+    if (!actual) return true
+    return actual === expected
   }
 
   function isPinnedWindow(toplevel) {
@@ -226,6 +323,7 @@ BarWidget {
   function windowDesktopEntry(toplevel) {
     var candidates = windowCandidates(toplevel)
     for (var i = 0; i < candidates.length; i++) {
+      if (!isPlausibleAppId(candidates[i])) continue
       var entry = DesktopEntries.heuristicLookup(candidates[i])
       if (entry) return entry
     }
@@ -234,7 +332,7 @@ BarWidget {
 
   function windowLabel(toplevel) {
     var entry = windowDesktopEntry(toplevel)
-    if (entry && entry.name) return String(entry.name)
+    if (entry && entry.name) return asPlainUiText(String(entry.name))
 
     var ipc = toplevel ? (toplevel.lastIpcObject || null) : null
     var tags = ipc && Array.isArray(ipc.tags) ? ipc.tags : []
@@ -246,7 +344,7 @@ BarWidget {
     if (appClass) {
       var pieces = appClass.split(".")
       var value = pieces[pieces.length - 1].replace(/[-_]+/g, " ")
-      return value.charAt(0).toUpperCase() + value.slice(1)
+      return asPlainUiText(value.charAt(0).toUpperCase() + value.slice(1))
     }
 
     return windowTitle(toplevel) || "Window"
@@ -256,59 +354,64 @@ BarWidget {
     if (!toplevel) return ""
 
     var directTitle = toplevel.title ? String(toplevel.title).trim() : ""
-    if (directTitle) return directTitle
+    if (directTitle) return asPlainUiText(directTitle)
 
     var ipc = toplevel.lastIpcObject || null
-    return ipc && ipc.title ? String(ipc.title).trim() : ""
+    return ipc && ipc.title ? asPlainUiText(String(ipc.title).trim()) : ""
   }
 
   function windowIcon(toplevel) {
     var entry = windowDesktopEntry(toplevel)
-    return entry && entry.icon ? String(entry.icon) : "application-x-executable"
+    return sanitizeIconName(entry && entry.icon ? entry.icon : fallbackIconName)
   }
 
   function regexEscape(value) {
     return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   }
 
+  function launchCommandForDesktopId(desktopId) {
+    var id = normalizeDesktopId(desktopId)
+    if (!id) return ""
+    return "uwsm-app -- gtk-launch " + Util.shellQuote(id + ".desktop")
+  }
+
   function descriptorFor(app, toplevel) {
     if (app) return {
-      label: String(app.label || windowLabel(toplevel) || "App"),
+      label: asPlainUiText(String(app.label || windowLabel(toplevel) || "App")) || "App",
       match: String(app.match || ""),
-      launch: String(app.launch || ""),
-      icon: String(app.icon || windowIcon(toplevel) || "application-x-executable"),
-      desktopId: String(app.desktopId || "")
+      launch: clampedLaunch(app.launch),
+      icon: sanitizeIconName(app.icon || windowIcon(toplevel) || fallbackIconName),
+      desktopId: normalizeDesktopId(app.desktopId)
     }
 
     var entry = windowDesktopEntry(toplevel)
     var appClass = windowClass(toplevel)
-    var desktopId = entry ? String(entry.id || "") : ""
+    var desktopId = normalizeDesktopId(entry ? entry.id : "")
     return {
       label: windowLabel(toplevel),
-      match: "^" + regexEscape(appClass) + "$",
-      launch: desktopId
-        ? "uwsm-app -- gtk-launch " + Util.shellQuote(desktopId + ".desktop") : "",
-      icon: entry && entry.icon ? String(entry.icon) : windowIcon(toplevel),
+      match: appClass ? "^" + regexEscape(appClass) + "$" : "",
+      launch: launchCommandForDesktopId(desktopId),
+      icon: sanitizeIconName(entry && entry.icon ? entry.icon : windowIcon(toplevel)),
       desktopId: desktopId
     }
   }
 
   function desktopEntryFor(app, toplevel) {
+    var desktopId = normalizeDesktopId(app && app.desktopId ? app.desktopId : "")
+    if (desktopId) {
+      var byId = DesktopEntries.byId(desktopId)
+        || DesktopEntries.byId(desktopId + ".desktop")
+      if (byId) return byId
+    }
+
     if (toplevel) {
       var matched = windowDesktopEntry(toplevel)
       if (matched) return matched
     }
 
-    var desktopId = String(app && app.desktopId ? app.desktopId : "")
-    if (desktopId) {
-      var normalized = desktopId.slice(-8) === ".desktop"
-        ? desktopId.slice(0, -8) : desktopId
-      var byId = DesktopEntries.byId(normalized)
-        || DesktopEntries.byId(normalized + ".desktop")
-      if (byId) return byId
-    }
-
-    return app && app.label ? DesktopEntries.heuristicLookup(String(app.label)) : null
+    if (!app || !app.label) return null
+    var label = String(app.label || "").trim()
+    return isPlausibleAppId(label) ? DesktopEntries.heuristicLookup(label) : null
   }
 
   function windowsForDescriptor(app, toplevel) {
@@ -334,11 +437,19 @@ BarWidget {
   }
 
   function resolveIconSource(icon) {
-    var value = String(icon || "")
-    if (bar && bar.shell && bar.shell.appLibrary) return bar.shell.appLibrary.iconSource(value)
-    if (value.indexOf("file://") === 0 || value.indexOf("image://") === 0) return value
-    if (value.charAt(0) === "/") return Util.fileUrl(value)
-    return Quickshell.iconPath(value || "application-x-executable", true)
+    var value = sanitizeIconName(icon)
+    var resolved = ""
+    if (bar && bar.shell && bar.shell.appLibrary)
+      resolved = String(bar.shell.appLibrary.iconSource(value) || "")
+    else if (value.indexOf("file://") === 0 || value.indexOf("image://") === 0)
+      resolved = value
+    else if (value.charAt(0) === "/")
+      resolved = Util.fileUrl(value)
+    else
+      resolved = Quickshell.iconPath(value || fallbackIconName, true)
+
+    if (!resolved || isRemoteIconSource(resolved)) return fallbackIconSource()
+    return resolved
   }
 
   function shortenedLabel(label) {
@@ -359,23 +470,36 @@ BarWidget {
   }
 
   function formattedWindowLabel(appName, toplevel) {
-    var app = String(appName || "App").trim() || "App"
+    var app = asPlainUiText(String(appName || "App").trim()) || "App"
     var title = windowTitle(toplevel)
-    var format = labelFormat.trim() || "[APP_NAME]"
+    var format = String(labelFormat || "").trim() || "[APP_NAME]"
+    if (format.length > maxUntrustedTextLength)
+      format = format.slice(0, maxUntrustedTextLength)
 
     if (!title) return app
 
-    var result = format
+    var result = asPlainUiText(format
       .replace(/\[APP_NAME\]/gi, app)
       .replace(/\[WINDOW_TITLE\]/gi, title)
-      .trim()
+      .trim())
     return result || app
   }
 
   function normalizedAddress(toplevel) {
     if (!toplevel || !toplevel.address) return ""
-    var address = String(toplevel.address)
-    return address.indexOf("0x") === 0 ? address : "0x" + address
+    var address = String(toplevel.address).trim()
+    if (address.indexOf("0x") === 0 || address.indexOf("0X") === 0)
+      address = "0x" + address.slice(2)
+    else
+      address = "0x" + address
+    if (!/^0x[0-9a-fA-F]{1,16}$/.test(address)) return ""
+    return address.toLowerCase()
+  }
+
+  function runLaunch(command) {
+    var value = clampedLaunch(command)
+    if (!value || !bar) return
+    bar.run(value)
   }
 
   function activateOrLaunch(app, toplevel) {
@@ -390,7 +514,7 @@ BarWidget {
         return
       }
     }
-    if (app && app.launch && bar) bar.run(String(app.launch))
+    if (app && app.launch) runLaunch(app.launch)
   }
 
   function openContextMenu(anchor, app, toplevel) {
@@ -454,16 +578,31 @@ BarWidget {
 
   function launchContextNewWindow() {
     if (contextEntry && bar && bar.shell && bar.shell.appLibrary) {
-      bar.shell.appLibrary.launch(String(contextEntry.id || ""), String(contextEntry.name || contextApp.label))
-    } else if (contextApp && contextApp.launch && bar) {
-      bar.run(String(contextApp.launch))
+      var id = normalizeDesktopId(contextEntry.id || (contextApp ? contextApp.desktopId : ""))
+      if (id) {
+        bar.shell.appLibrary.launch(
+          id,
+          asPlainUiText(String(contextEntry.name || (contextApp ? contextApp.label : id))))
+      }
+    } else if (contextApp && contextApp.launch) {
+      runLaunch(contextApp.launch)
     }
     close()
   }
 
   function executeDesktopAction(action) {
     close()
-    if (action && typeof action.execute === "function") action.execute()
+    if (!action || typeof action.execute !== "function") return
+    if (!contextEntry || !contextEntry.actions) return
+    var allowed = false
+    for (var i = 0; i < contextEntry.actions.length; i++) {
+      if (contextEntry.actions[i] === action) {
+        allowed = true
+        break
+      }
+    }
+    if (!allowed) return
+    action.execute()
   }
 
   function closeWindow(toplevel) {
@@ -588,7 +727,7 @@ BarWidget {
             width: Style.space(24)
             height: width
             source: taskbar.resolveIconSource(taskbar.contextApp
-              ? taskbar.contextApp.icon : "application-x-executable")
+              ? taskbar.contextApp.icon : taskbar.fallbackIconName)
             sourceSize.width: Math.round(width * Screen.devicePixelRatio)
             sourceSize.height: Math.round(height * Screen.devicePixelRatio)
             fillMode: Image.PreserveAspectFit
@@ -620,6 +759,7 @@ BarWidget {
             Text {
               width: parent.width
               text: taskbar.contextApp ? taskbar.contextApp.label : "Application"
+              textFormat: Text.PlainText
               color: taskbar.bar ? taskbar.bar.barForeground : Color.foreground
               font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
               font.pixelSize: Style.font.body
@@ -633,6 +773,7 @@ BarWidget {
                 ? "Not running"
                 : (taskbar.contextWindows.length === 1
                   ? "1 window" : taskbar.contextWindows.length + " windows")
+              textFormat: Text.PlainText
               color: Util.alpha(taskbar.bar ? taskbar.bar.barForeground : Color.foreground, 0.55)
               font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
               font.pixelSize: Style.font.caption
@@ -672,7 +813,7 @@ BarWidget {
           MenuRow {
             required property var modelData
 
-            text: String(modelData.name || modelData.id || "Application Action")
+            text: taskbar.asPlainUiText(String(modelData.name || modelData.id || "Application Action"))
             iconText: "\uf144"
             onTriggered: taskbar.executeDesktopAction(modelData)
           }
@@ -787,6 +928,7 @@ BarWidget {
       anchors.rightMargin: Style.space(10)
       anchors.verticalCenter: parent.verticalCenter
       text: menuRow.text
+      textFormat: Text.PlainText
       color: menuRow.destructive ? Color.urgent
         : (taskbar.bar ? taskbar.bar.barForeground : Color.foreground)
       font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
@@ -857,7 +999,7 @@ BarWidget {
     fixedWidth: calculatedWidth
     fixedHeight: Math.min(taskbar.barSize,
       contentHeight + Style.space(taskbar.itemVerticalPadding * 2))
-    tooltipText: displayLabel
+    tooltipText: taskbar.asPlainUiText(displayLabel)
       + (pinned && appWindow === null ? "\nClick to open" : "\nClick to focus")
 
     onPressed: function(button) {
@@ -918,6 +1060,7 @@ BarWidget {
           anchors.centerIn: parent
           visible: appIcon.status === Image.Error || appIcon.source.toString() === ""
           text: chip.shortLabel.charAt(0).toUpperCase()
+          textFormat: Text.PlainText
           color: chip.foregroundColor
           font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
           font.pixelSize: taskbar.fontSize
@@ -929,6 +1072,7 @@ BarWidget {
         visible: chip.effectiveShowLabels
         width: chip.labelExtent
         text: chip.shortLabel
+        textFormat: Text.PlainText
         color: chip.foregroundColor
         font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
         font.pixelSize: taskbar.fontSize

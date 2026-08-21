@@ -2,6 +2,21 @@
 
 All notable changes to OmaPanel are documented here.
 
+## 1.9.1
+
+- Treat Hyprland window titles and application names as plain text so crafted
+  titles cannot trigger QML AutoText / rich-text resource loads (including bar
+  tooltips).
+- Cap untrusted titles, classes, launch strings, and icon values; reject remote
+  icon schemes and non-local `file://` URLs.
+- Validate Hyprland window addresses as hex before focus/close dispatch.
+- Reject oversized or nested-quantifier class regexes (`match`,
+  `excludedClasses`).
+- Prefer a pinned app's `desktopId` for New Window / desktop actions, and only
+  look up desktop entries for plausible app IDs.
+- When a pin has `desktopId`, require the window's resolved desktop entry to
+  match before treating it as that pinned app.
+
 ## 1.9.0
 
 - Adopted the permanent plugin ID `atagulalan.omapanel` to match the publisher

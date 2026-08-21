@@ -45,9 +45,14 @@ A pinned application's `match` regular expression is tested against:
 2. `lastIpcObject.initialClass`
 3. `wayland.appId`
 
-A matched pinned window is excluded from the dynamic list. If more than one
-window matches, the active one is preferred; otherwise the first match is used.
-The context menu uses the same descriptor to list every matching window.
+Oversized patterns and nested-quantifier forms are rejected. Class strings are
+length-capped before matching and desktop lookup.
+
+When the pin also has a `desktopId` and the window resolves to a desktop entry,
+that entry's ID must match the pin. A matched pinned window is excluded from the
+dynamic list. If more than one window matches, the active one is preferred;
+otherwise the first match is used. The context menu uses the same descriptor to
+list every matching window.
 
 ## Launch, focus, and close
 
@@ -77,14 +82,23 @@ Window titles use:
 The second source handles applications whose IPC title is available before
 Quickshell exposes its title.
 
+Untrusted titles and names are truncated, stripped of control characters, and
+rendered as plain text so QML AutoText cannot treat them as HTML (including in
+bar tooltips).
+
 Icons use:
 
 1. the pinned application's explicit `icon`;
 2. the desktop-entry icon;
 3. `application-x-executable`.
 
-Freedesktop names, `image://` URLs, `file://` URLs, and absolute paths are
-accepted. If loading fails, the first letter of the application name is shown.
+Freedesktop names, `image://` URLs, local `file:///` URLs, and absolute paths
+are accepted. Remote schemes (`http(s)`, `ftp`, `data`, …) and non-local
+`file://` URLs are rejected. If loading fails, the first letter of the
+application name is shown.
+
+Pinned applications with a `desktopId` resolve New Window / desktop actions
+from that ID first, rather than from a window's heuristic class lookup.
 
 ## Workspace grouping
 
