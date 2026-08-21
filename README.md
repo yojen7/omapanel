@@ -4,7 +4,7 @@ OmaPanel is a configurable application taskbar for the Omarchy Shell. It keeps
 favorite applications pinned, adds live Hyprland windows, and provides
 launch-or-focus behavior in a compact bar widget.
 
-![OmaPanel preview](preview.png)
+![OmaPanel promotional preview](docs/omapanel-promo.svg)
 
 ```text
 [Zen] [Cursor] | [workspace 1 windows] | [workspace 5 windows]
