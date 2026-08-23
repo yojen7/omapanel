@@ -112,6 +112,23 @@ Pinned applications remain workspace-independent:
 pinned | workspace 1 windows | workspace 5 windows | workspace 9 windows
 ```
 
+## Mouse-wheel focus cycling
+
+Each taskbar chip exposes `handleBarWheel(delta)` for bars that support wheel
+routing. Pinned chips build their focus ring from all windows matching the pin
+descriptor. Dynamic chips build it from the visible `runningWindows` entries
+with the same workspace ID when workspace grouping is enabled.
+
+Wheel deltas pass through `Util.wheelSteps`, so small touchpad deltas accumulate
+without allowing one oversized mouse event to skip multiple windows. The active
+window anchors the next step when it belongs to the group; otherwise the
+hovered chip is the anchor. Wheel down moves forward, wheel up moves backward,
+and both directions wrap. When no group member is active, the first completed
+wheel step focuses the hovered chip without advancing; a short-lived cursor
+then makes rapid subsequent steps advance reliably before Hyprland's focus
+event arrives. One-window groups consume the wheel and focus their only window.
+Only groups with no open window return the event to the containing bar.
+
 ## Width calculation
 
 An item's natural width is:
@@ -129,12 +146,16 @@ horizontal padding + icon + icon/label gap + measured label
 The remaining label width is passed to `Text.ElideRight`.
 `maxLabelLength` also shortens unusually long strings before measurement.
 
+`itemSpacing` is split evenly into transparent left and right hit padding on
+every item. Adjacent hit areas therefore meet with no dead zone while their
+painted backgrounds and active indicators retain the configured visual gap.
+
 ## Visual states
 
-Normal, hover, and active states each expose foreground, background, and font
-weight settings.
+Normal, hover, and active states each expose foreground, background, font
+weight, and foreground-opacity settings.
 
-Foreground and weight priority:
+Foreground, weight, and opacity priority:
 
 ```text
 hover > active > normal
@@ -143,10 +164,17 @@ hover > active > normal
 Backgrounds share one rectangle with the same priority. Empty normal and active
 background values disable those persistent fills; an empty hover background
 falls back to the theme hover fill. State colors never blend.
+`itemCornerRadius` controls this rectangle's radius; an empty value follows the
+theme and `0` keeps its corners square.
 
-Closed pinned applications use full opacity. `iconOnlyWhenClosed` can hide
-their labels while keeping icons visible, even when the general icon toggle is
-off.
+Opacity is assigned to the shared icon-and-label row, so both types of content
+fade together. Closed pinned applications use normal-state opacity.
+`iconOnlyWhenClosed` can hide their labels while keeping icons visible, even
+when the general icon toggle is off.
+
+`invertIconColors` switches loaded application icons to a small precompiled Qt
+fragment shader. It inverts premultiplied RGB values while preserving the icon
+alpha channel; fallback letter icons continue to use the configured foreground.
 
 The active indicator is rendered only for the chip whose window equals
 `Hyprland.activeToplevel`. Underline, Top, and Dot positions use direct
@@ -175,9 +203,10 @@ normalized `pinnedApps` array, and call
 
 ## Settings panel
 
-The settings gear opens a `KeyboardPanel` with three tabs:
+The settings gear opens a `KeyboardPanel` with four tabs:
 
 - General
+- Behavior
 - Layout
 - Appearance
 

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "atagulalan.omapanel",
   "name": "OmaPanel",
-  "version": "1.9.1",
+  "version": "1.10.0",
   "author": "atagulalan",
   "license": "MIT",
   "description": "Pinned launch-or-focus applications followed by live Hyprland windows.",
@@ -30,6 +30,7 @@
       "showRunning": true,
       "groupRunningByWorkspace": true,
       "showIcons": true,
+      "invertIconColors": false,
       "showLabels": true,
       "iconOnlyWhenClosed": true,
       "leftClickAction": "Focus or Launch",
@@ -46,12 +47,16 @@
       "itemSpacing": 4,
       "itemHorizontalPadding": 8,
       "itemVerticalPadding": 12,
+      "itemCornerRadius": "",
       "iconLabelSpacing": 8,
       "iconSize": 18,
       "fontSize": "",
       "normalFontWeight": 400,
       "hoverFontWeight": 500,
       "activeFontWeight": 600,
+      "normalOpacity": 100,
+      "hoverOpacity": 100,
+      "activeOpacity": 100,
       "normalColor": "",
       "normalBackgroundColor": "",
       "hoverColor": "",
@@ -96,6 +101,13 @@
         "type": "boolean",
         "label": "Show application icons",
         "defaultValue": true
+      },
+      {
+        "key": "invertIconColors",
+        "type": "boolean",
+        "label": "Invert icon colors",
+        "description": "Invert application icon RGB values while preserving transparency.",
+        "defaultValue": false
       },
       {
         "key": "showLabels",
@@ -284,6 +296,13 @@
         "defaultValue": 12
       },
       {
+        "key": "itemCornerRadius",
+        "type": "string",
+        "label": "Item corner radius",
+        "description": "Optional radius from 0 to 32. Leave empty to follow the theme; 0 makes item backgrounds square.",
+        "defaultValue": ""
+      },
+      {
         "key": "iconLabelSpacing",
         "type": "integer",
         "label": "Icon-to-label spacing",
@@ -337,6 +356,36 @@
         "max": 1000,
         "step": 50,
         "defaultValue": 600
+      },
+      {
+        "key": "normalOpacity",
+        "type": "integer",
+        "label": "Normal foreground opacity",
+        "description": "Opacity percentage applied to both the label and icon in the normal state.",
+        "min": 0,
+        "max": 100,
+        "step": 5,
+        "defaultValue": 100
+      },
+      {
+        "key": "hoverOpacity",
+        "type": "integer",
+        "label": "Hover foreground opacity",
+        "description": "Opacity percentage applied to both the label and icon while hovered.",
+        "min": 0,
+        "max": 100,
+        "step": 5,
+        "defaultValue": 100
+      },
+      {
+        "key": "activeOpacity",
+        "type": "integer",
+        "label": "Active foreground opacity",
+        "description": "Opacity percentage applied to both the label and icon for the active window.",
+        "min": 0,
+        "max": 100,
+        "step": 5,
+        "defaultValue": 100
       },
       {
         "key": "normalColor",

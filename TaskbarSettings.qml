@@ -240,6 +240,13 @@ KeyboardPanel {
         }
       }
 
+      SettingToggle {
+        settingKey: "invertIconColors"
+        settingLabel: "Invert icon colors"
+        settingDescription: "Invert application icon pixels while preserving transparency."
+        fallbackValue: false
+      }
+
       SettingText {
         settingKey: "labelFormat"
         settingLabel: "Label format"
@@ -487,6 +494,15 @@ KeyboardPanel {
         }
       }
 
+      SettingOptionalNumber {
+        width: parent.width
+        settingKey: "itemCornerRadius"
+        settingLabel: "Item rounding"
+        minimumValue: 0
+        maximumValue: 32
+        placeholder: "Theme"
+      }
+
       }
 
       Column {
@@ -544,6 +560,16 @@ KeyboardPanel {
             maximumValue: 1000
             stepValue: 50
           }
+
+          SettingNumber {
+            width: parent.width
+            settingKey: "normalOpacity"
+            settingLabel: "Opacity (%)"
+            fallbackValue: 100
+            minimumValue: 0
+            maximumValue: 100
+            stepValue: 5
+          }
         }
 
         Column {
@@ -582,6 +608,16 @@ KeyboardPanel {
             maximumValue: 1000
             stepValue: 50
           }
+
+          SettingNumber {
+            width: parent.width
+            settingKey: "hoverOpacity"
+            settingLabel: "Opacity (%)"
+            fallbackValue: 100
+            minimumValue: 0
+            maximumValue: 100
+            stepValue: 5
+          }
         }
 
         Column {
@@ -619,6 +655,16 @@ KeyboardPanel {
             minimumValue: 1
             maximumValue: 1000
             stepValue: 50
+          }
+
+          SettingNumber {
+            width: parent.width
+            settingKey: "activeOpacity"
+            settingLabel: "Opacity (%)"
+            fallbackValue: 100
+            minimumValue: 0
+            maximumValue: 100
+            stepValue: 5
           }
         }
       }

@@ -21,11 +21,15 @@ The plugin uses the permanent namespaced ID `atagulalan.omapanel`.
 - Left-click launches a closed application or focuses an existing window.
 - Unpinned Hyprland windows appear automatically.
 - Running windows can be grouped by workspace with separators between groups.
+- Scrolling a multi-window pinned application cycles focus inside that
+  application; scrolling a grouped running window cycles focus inside its
+  workspace.
 - Closed pinned applications can stay compact with icon-only mode.
 - A dedicated Behavior tab maps left, right, middle, Ctrl+left, Shift+left,
   and Alt+left clicks to focus, launch, window, pin, menu, or settings actions.
 - Normal, hover, and active states each have independent foreground,
-  background, and font-weight controls.
+  background, font-weight, and foreground-opacity controls.
+- Application icon colors can be inverted without changing their transparency.
 - Active-window indicators support `Underline`, `Top`, `Dot`, and `None`.
 - Labels support `[APP_NAME]` and `[WINDOW_TITLE]` placeholders.
 - Adaptive and fixed-width layouts include maximum width and ellipsis handling.
@@ -38,9 +42,9 @@ The plugin uses the permanent namespaced ID `atagulalan.omapanel`.
   - Close Window and Close N Windows;
   - quick access to OmaPanel Settings.
 
-- The built-in settings panel is split into General, Layout, and Appearance
-  tabs, saves changes immediately, and can restore manifest defaults.
-- Colors, icons, typography, padding, spacing, filters, and separators are
+- The built-in settings panel is split into General, Behavior, Layout, and
+  Appearance tabs, saves changes immediately, and can restore manifest defaults.
+- Colors, icons, typography, padding, spacing, rounding, filters, and separators are
   configurable.
 
 ## Requirements
@@ -85,6 +89,15 @@ omarchy plugin remove atagulalan.omapanel --yes
 
 Left-click an item to launch or focus it. Right-click an item to open its
 application menu.
+
+Wheel down focuses the next window in the hovered group and wheel up focuses
+the previous one, wrapping at either end. A pinned group contains all open
+windows matching that pinned application. A running-window group contains the
+visible windows from the same workspace when `groupRunningByWorkspace` is
+enabled. Entering a group with no active member focuses the hovered chip first;
+the next wheel step continues in the requested direction. A one-window group
+keeps focus on its only window and consumes the gesture, while a closed pin
+leaves it to the containing bar.
 
 Use the gear button in the upper-right corner of that menu to open
 **OmaPanel Settings**. Changes are written immediately to the
@@ -154,6 +167,8 @@ plugin directory and never edit the packaged shell under
 Validate the repository before publishing:
 
 ```bash
+/usr/lib/qt6/bin/qsb --qt6 --qsbversion 64 -O \
+  -o shaders/invert.frag.qsb shaders/invert.frag
 jq empty manifest.json examples/shell-entry.json
 qmlformat -n BarWidget.qml >/dev/null
 qmlformat -n TaskbarSettings.qml >/dev/null

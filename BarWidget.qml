@@ -15,6 +15,7 @@ BarWidget {
   readonly property bool showRunning: setting("showRunning", true) === true
   readonly property bool groupRunningByWorkspace: setting("groupRunningByWorkspace", true) === true
   readonly property bool showIcons: setting("showIcons", true) === true
+  readonly property bool invertIconColors: setting("invertIconColors", false) === true
   readonly property bool showLabels: setting("showLabels", true) === true
   readonly property bool iconOnlyWhenClosed: setting("iconOnlyWhenClosed", true) === true
   readonly property string leftClickAction: normalizedClickAction(
@@ -37,6 +38,7 @@ BarWidget {
   readonly property int itemSpacing: Math.max(0, Number(setting("itemSpacing", 4)))
   readonly property int itemHorizontalPadding: Math.max(0, Number(setting("itemHorizontalPadding", 8)))
   readonly property int itemVerticalPadding: Math.max(0, Number(setting("itemVerticalPadding", 12)))
+  readonly property real itemCornerRadius: resolvedItemCornerRadius(setting("itemCornerRadius", ""))
   readonly property int iconLabelSpacing: Math.max(0, Number(setting("iconLabelSpacing", 8)))
   readonly property int iconSize: Math.max(8, Number(setting("iconSize", 18)))
   readonly property int automaticFontSize: Math.max(1, Math.round(Style.font.body))
@@ -44,6 +46,9 @@ BarWidget {
   readonly property int normalFontWeight: Math.max(1, Math.min(1000, Number(setting("normalFontWeight", 400))))
   readonly property int hoverFontWeight: Math.max(1, Math.min(1000, Number(setting("hoverFontWeight", 500))))
   readonly property int activeFontWeight: Math.max(1, Math.min(1000, Number(setting("activeFontWeight", 600))))
+  readonly property real normalOpacity: resolvedOpacity(setting("normalOpacity", 100))
+  readonly property real hoverOpacity: resolvedOpacity(setting("hoverOpacity", 100))
+  readonly property real activeOpacity: resolvedOpacity(setting("activeOpacity", 100))
   readonly property color normalTextColor: configuredColor(setting("normalColor", ""),
     bar ? bar.barForeground : Color.foreground)
   readonly property string normalBackgroundValue: String(setting("normalBackgroundColor", "")).trim()
@@ -81,6 +86,10 @@ BarWidget {
   readonly property string excludedClasses: String(setting("excludedClasses", ""))
   readonly property var activeWindow: Hyprland.activeToplevel
   property int hyprlandRevision: 0
+  property real groupWheelAccumulator: 0
+  property string groupWheelKey: ""
+  property string groupWheelCursorAddress: ""
+  property double groupWheelCursorDeadline: 0
   property bool contextMenuOpen: false
   property bool settingsPanelOpen: false
   property Item contextAnchor: null
@@ -164,6 +173,22 @@ BarWidget {
     var parsed = Number(rawValue)
     return isNaN(parsed)
       ? automaticFontSize : Math.max(8, Math.min(24, Math.round(parsed)))
+  }
+
+  function resolvedOpacity(rawValue) {
+    var parsed = Number(rawValue)
+    return isNaN(parsed) ? 1 : Math.max(0, Math.min(100, parsed)) / 100
+  }
+
+  function resolvedItemCornerRadius(rawValue) {
+    if (rawValue === undefined || rawValue === null
+        || String(rawValue).trim() === "") {
+      return Math.max(2, Style.cornerRadius)
+    }
+
+    var parsed = Number(rawValue)
+    return isNaN(parsed)
+      ? Math.max(2, Style.cornerRadius) : Math.max(0, Math.min(32, Math.round(parsed)))
   }
 
   function normalizedClickAction(value, fallback) {
@@ -467,6 +492,96 @@ BarWidget {
     return result
   }
 
+  function sameToplevel(left, right) {
+    if (!left || !right) return false
+    if (left === right) return true
+    var leftAddress = normalizedAddress(left)
+    var rightAddress = normalizedAddress(right)
+    return leftAddress !== "" && leftAddress === rightAddress
+  }
+
+  function indexOfToplevel(windows, target) {
+    for (var i = 0; i < windows.length; i++) {
+      if (sameToplevel(windows[i], target)) return i
+    }
+    return -1
+  }
+
+  function wheelGroup(app, toplevel, pinned) {
+    if (!toplevel) return { key: "", windows: [] }
+
+    if (pinned) {
+      var descriptor = descriptorFor(app, toplevel)
+      return {
+        key: "pinned:" + descriptor.match + ":" + descriptor.desktopId,
+        windows: windowsForDescriptor(app, toplevel)
+      }
+    }
+
+    if (!groupRunningByWorkspace) return { key: "", windows: [] }
+
+    var workspaceId = windowWorkspaceId(toplevel)
+    return {
+      key: "workspace:" + workspaceId,
+      windows: runningWindows.filter(function(candidate) {
+        return windowWorkspaceId(candidate) === workspaceId
+      })
+    }
+  }
+
+  function resetGroupWheel() {
+    groupWheelAccumulator = 0
+    groupWheelKey = ""
+    groupWheelCursorAddress = ""
+    groupWheelCursorDeadline = 0
+  }
+
+  function cycleWindowGroup(app, toplevel, pinned, delta) {
+    var group = wheelGroup(app, toplevel, pinned)
+    if (group.windows.length === 0) {
+      resetGroupWheel()
+      return false
+    }
+
+    if (groupWheelKey !== group.key) {
+      groupWheelAccumulator = 0
+      groupWheelKey = group.key
+      groupWheelCursorAddress = ""
+      groupWheelCursorDeadline = 0
+    }
+
+    var wheel = Util.wheelSteps(groupWheelAccumulator, delta)
+    groupWheelAccumulator = wheel.remainder
+    if (wheel.steps === 0) return true
+
+    var now = Date.now()
+    var step = wheel.steps > 0 ? -1 : 1
+    var cursorIndex = now <= groupWheelCursorDeadline
+      ? group.windows.map(function(window) {
+          return normalizedAddress(window)
+        }).indexOf(groupWheelCursorAddress)
+      : -1
+    var activeIndex = indexOfToplevel(group.windows, activeWindow)
+    var hoveredIndex = indexOfToplevel(group.windows, toplevel)
+    var nextIndex
+
+    if (cursorIndex >= 0) {
+      nextIndex = (cursorIndex + step + group.windows.length) % group.windows.length
+    } else if (activeIndex >= 0) {
+      nextIndex = (activeIndex + step + group.windows.length) % group.windows.length
+    } else {
+      // Entering an inactive group selects exactly the chip under the pointer.
+      // The following wheel step advances from this remembered cursor even if
+      // Hyprland has not published the focus change yet.
+      nextIndex = hoveredIndex >= 0 ? hoveredIndex : 0
+    }
+
+    groupWheelCursorAddress = normalizedAddress(group.windows[nextIndex])
+    groupWheelCursorDeadline = now + 750
+    activateOrLaunch(app, group.windows[nextIndex])
+    return true
+  }
+
   function pinnedIndex(app, toplevel) {
     var descriptor = descriptorFor(app, toplevel)
     for (var i = 0; i < pinnedApps.length; i++) {
@@ -737,7 +852,7 @@ BarWidget {
   Row {
     id: content
     anchors.centerIn: parent
-    spacing: Style.space(taskbar.itemSpacing)
+    spacing: 0
 
     TaskbarSeparator {
       visible: taskbar.leadingSeparator && taskbar.pinnedApps.length > 0
@@ -769,7 +884,7 @@ BarWidget {
       Row {
         required property int index
         required property var modelData
-        spacing: Style.space(taskbar.itemSpacing)
+        spacing: 0
 
         TaskbarSeparator {
           visible: taskbar.startsWorkspaceGroup(parent.index, parent.modelData)
@@ -1066,6 +1181,8 @@ BarWidget {
     readonly property real labelHeight: effectiveShowLabels ? labelMetrics.height : 0
     readonly property real contentSpacing: effectiveShowIcons && effectiveShowLabels
       ? Style.space(taskbar.iconLabelSpacing) : 0
+    readonly property real hitHorizontalPadding: Style.space(taskbar.itemSpacing) / 2
+    readonly property real hitHorizontalPaddingExtent: hitHorizontalPadding * 2
     readonly property real horizontalPaddingExtent: Style.space(taskbar.itemHorizontalPadding * 2)
     readonly property real iconContentExtent: effectiveShowIcons ? iconExtent : 0
     readonly property real nonLabelExtent: horizontalPaddingExtent + iconContentExtent + contentSpacing
@@ -1087,6 +1204,13 @@ BarWidget {
     readonly property int foregroundWeight: pointerHovered
       ? taskbar.hoverFontWeight
       : (isActive ? taskbar.activeFontWeight : taskbar.normalFontWeight)
+    readonly property real foregroundOpacity: pointerHovered
+      ? taskbar.hoverOpacity
+      : (isActive ? taskbar.activeOpacity : taskbar.normalOpacity)
+
+    function handleBarWheel(delta) {
+      return taskbar.cycleWindowGroup(app, appWindow, pinned, delta)
+    }
 
     bar: taskbar.bar
     text: ""
@@ -1096,7 +1220,7 @@ BarWidget {
     interactive: false
     useActiveColor: false
     dimmed: false
-    fixedWidth: calculatedWidth
+    fixedWidth: calculatedWidth + hitHorizontalPaddingExtent
     fixedHeight: Math.min(taskbar.barSize,
       contentHeight + Style.space(taskbar.itemVerticalPadding * 2))
     tooltipText: taskbar.asPlainUiText(displayLabel)
@@ -1115,8 +1239,11 @@ BarWidget {
         && taskbar.activeBackgroundEnabled
 
       anchors.fill: parent
-      anchors.margins: Style.space(1)
-      radius: Math.max(2, Style.cornerRadius)
+      anchors.topMargin: Style.space(1)
+      anchors.bottomMargin: Style.space(1)
+      anchors.leftMargin: chip.hitHorizontalPadding + Style.space(1)
+      anchors.rightMargin: chip.hitHorizontalPadding + Style.space(1)
+      radius: taskbar.itemCornerRadius
       color: chip.pointerHovered ? taskbar.hoverBackgroundColor
         : (persistentActive ? taskbar.activeBackgroundColor : taskbar.normalBackgroundColor)
       opacity: chip.pointerHovered || persistentActive || taskbar.normalBackgroundEnabled ? 1 : 0
@@ -1129,6 +1256,11 @@ BarWidget {
     Row {
       anchors.centerIn: parent
       spacing: chip.contentSpacing
+      opacity: chip.foregroundOpacity
+
+      Behavior on opacity {
+        NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+      }
 
       Item {
         width: chip.iconExtent
@@ -1145,6 +1277,12 @@ BarWidget {
           asynchronous: true
           smooth: true
           mipmap: true
+          layer.enabled: taskbar.invertIconColors
+          layer.smooth: true
+          layer.effect: ShaderEffect {
+            property variant source
+            fragmentShader: Qt.resolvedUrl("shaders/invert.frag.qsb")
+          }
         }
 
         Text {
@@ -1183,8 +1321,9 @@ BarWidget {
       width: dotIndicator
         ? Style.space(taskbar.indicatorSize)
         : (taskbar.indicatorLength > 0
-          ? Math.min(chip.width, Style.space(taskbar.indicatorLength))
-          : Math.max(Style.space(12), chip.width - Style.space(taskbar.itemHorizontalPadding * 2)))
+          ? Math.min(chip.calculatedWidth, Style.space(taskbar.indicatorLength))
+          : Math.max(Style.space(12),
+            chip.calculatedWidth - Style.space(taskbar.itemHorizontalPadding * 2)))
       height: dotIndicator
         ? width : Style.space(taskbar.indicatorThickness)
       x: Math.round((parent.width - width) / 2)
@@ -1217,6 +1356,11 @@ BarWidget {
       onClicked: function(mouse) {
         taskbar.handleConfiguredClick(
           chip.app, chip.appWindow, chip, mouse.button, mouse.modifiers)
+      }
+      onWheel: function(wheel) {
+        var delta = wheel.angleDelta.y !== 0
+          ? wheel.angleDelta.y : wheel.angleDelta.x
+        wheel.accepted = chip.handleBarWheel(delta)
       }
     }
   }

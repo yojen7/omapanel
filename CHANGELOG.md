@@ -2,6 +2,24 @@
 
 All notable changes to OmaPanel are documented here.
 
+## Unreleased
+
+## 1.10.0
+
+- Split item spacing between adjacent click targets so the visual gaps no
+  longer create dead pointer areas.
+- Add an optional item corner-radius setting with theme fallback and square
+  corners at zero.
+- Add independent Normal, Hover, and Active foreground opacity controls that
+  affect both labels and application icons.
+- Add a General setting that inverts application icon colors while preserving
+  transparency.
+- Cycle focus through matching pinned windows or same-workspace running
+  windows when scrolling a multi-window taskbar group.
+- Normalize wheel and touchpad deltas and wrap focus at group boundaries.
+- Focus the hovered chip first when entering an inactive group, and keep
+  one-window groups focused instead of passing their wheel event to the bar.
+
 ## 1.9.1
 
 - Treat Hyprland window titles and application names as plain text so crafted

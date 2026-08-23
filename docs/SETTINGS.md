@@ -23,6 +23,7 @@ those windows are not duplicated in the dynamic running section.
 | `showRunning` | boolean | `true` | Show non-pinned running windows |
 | `groupRunningByWorkspace` | boolean | `true` | Sort running windows by workspace and separate groups |
 | `showIcons` | boolean | `true` | Show application icons |
+| `invertIconColors` | boolean | `false` | Invert application icon RGB values while preserving transparency |
 | `showLabels` | boolean | `true` | Show application labels |
 | `iconOnlyWhenClosed` | boolean | `true` | Keep closed pinned applications compact |
 | `labelFormat` | string | `[APP_NAME] - [WINDOW_TITLE]` | Label template for open windows |
@@ -88,25 +89,30 @@ font size automatically.
 
 | Key | Type | Default | Range | Description |
 |---|---:|---:|---:|---|
-| `itemSpacing` | integer | `4` | 0–24 | Space between application items |
+| `itemSpacing` | integer | `4` | 0–24 | Visual gap between items, included in adjacent click targets |
 | `itemHorizontalPadding` | integer | `8` | 0–24 | Left and right item padding |
 | `itemVerticalPadding` | integer | `12` | 0–16 | Top and bottom item padding |
+| `itemCornerRadius` | numeric string or empty | empty | 0–32, or empty | Item background radius; empty follows the theme |
 | `iconLabelSpacing` | integer | `8` | 0–20 | Gap between icon and label |
 | `iconSize` | integer | `18` | 8–32 | Application icon size |
 
 These values pass through Omarchy's `Style.space()` scaling so they follow the
-active shell density.
+active shell density. Corner radius is a direct pixel value; `0` produces
+square item backgrounds.
 
-## State colors
+## State appearance
 
 | Key | Default | Description |
 |---|---:|---|
 | `normalColor` | empty | Normal label and fallback-icon foreground |
 | `normalBackgroundColor` | empty | Normal item background; empty disables it |
+| `normalOpacity` | `100` | Normal label and icon opacity, as a percentage |
 | `hoverColor` | empty | Hovered label and fallback-icon foreground |
 | `hoverBackgroundColor` | empty | Hovered item background |
+| `hoverOpacity` | `100` | Hovered label and icon opacity, as a percentage |
 | `activeColor` | empty | Active label and fallback-icon foreground |
 | `activeBackgroundColor` | empty | Active item background; empty disables it |
+| `activeOpacity` | `100` | Active label and icon opacity, as a percentage |
 | `indicatorColor` | empty | Active-window indicator color |
 
 Colors accept `#RRGGBB` and `#RRGGBBAA`. The final two digits in the
@@ -115,6 +121,10 @@ eight-digit form are alpha: `00` is transparent and `ff` is opaque.
 Empty foreground values inherit the bar or previous state. An empty hover
 background uses the theme hover fill. Normal and active backgrounds are
 disabled when their values are empty.
+
+Opacity accepts values from 0 to 100 and applies to the foreground content as
+a unit, so labels, loaded application icons, and fallback letter icons fade
+together. Hover has priority over active, which has priority over normal.
 
 The background uses a single visual layer with this priority:
 
