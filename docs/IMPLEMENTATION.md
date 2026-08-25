@@ -5,17 +5,57 @@ implementation decisions.
 
 ## Architecture
 
-OmaPanel is a single Omarchy `bar-widget` plugin:
+OmaPanel is a single Omarchy `bar-widget` plugin. Sources stay split for
+editing; `scripts/bundle-qml.py` inlines them into the committed entry point:
 
 ```text
+src/BarWidget.qml + src/*.inc
+taskbar/*.qml + taskbar/*.inc
+settings/**/*.qml + settings/**/*.inc
+        │
+        ▼  scripts/bundle-qml.py
 manifest.json
-    └── BarWidget.qml
-            └── TaskbarSettings.qml
+    └── BarWidget.qml            # generated; do not edit
+            ├── TaskHelpers.js   # sibling JS import, not bundled
+            └── TaskMatch.js
 ```
 
-`BarWidget.qml` owns window discovery, pinned applications, rendering,
-interaction, persistence, and both popouts. `TaskbarSettings.qml` provides the
-keyboard-aware settings interface.
+`// @include` fragments are spliced in before the bundler wraps QML files as
+inline `component` blocks. Source files must stay at most 150 lines.
+
+Source layout:
+
+```text
+src/BarWidget.qml              # settings, window lists, interaction
+taskbar/
+        ├── TaskbarChrome.qml
+        ├── AppChip.qml
+        ├── TaskbarSeparator.qml
+        ├── ContextMenu.qml
+        ├── MenuRow.qml
+        ├── MenuSeparator.qml
+        └── WindowPreview.qml
+settings/
+        ├── TaskbarSettings.qml
+        ├── SettingsTabBar.qml
+        ├── tabs/
+        │       ├── GeneralTab.qml
+        │       ├── BehaviorTab.qml
+        │       ├── LayoutTab.qml
+        │       └── AppearanceTab.qml
+        └── fields/
+                ├── SettingToggle.qml
+                ├── SettingDropdown.qml
+                ├── SettingNumber.qml
+                ├── SettingOptionalNumber.qml
+                ├── SettingText.qml
+                └── PinnedMoveButton.qml
+```
+
+`src/BarWidget.qml` owns settings, window discovery, pinned applications,
+interaction, and persistence. Taskbar chrome, chips, menus, and previews live
+under `taskbar/`. The settings panel, its tabs, and field controls live under
+`settings/`. Shared sanitizers live in `TaskHelpers.js` and `TaskMatch.js`.
 
 The plugin runs inside the existing Omarchy Shell process. It never starts a
 second Quickshell instance.
@@ -158,7 +198,8 @@ weight, and foreground-opacity settings.
 Foreground, weight, and opacity priority:
 
 ```text
-hover > active > normal
+hover > active > normal  (when hoverOverridesActive is true)
+active > hover > normal  (when hoverOverridesActive is false)
 ```
 
 Backgrounds share one rectangle with the same priority. Empty normal and active
@@ -166,6 +207,13 @@ background values disable those persistent fills; an empty hover background
 falls back to the theme hover fill. State colors never blend.
 `itemCornerRadius` controls this rectangle's radius; an empty value follows the
 theme and `0` keeps its corners square.
+`barTopPadding`, `barBottomPadding`, `barHorizontalPadding`, `barBackgroundColor`,
+and `barCornerRadius` wrap the chip row in optional chrome. Chip height is
+clamped to the bar size minus the vertical bar paddings.
+`animationDuration` drives width, opacity, and indicator animations; `0`
+makes those changes instant.
+When `showWindowPreviews` is enabled, hovering an open window shows a delayed
+`ScreencopyView` popup of `toplevel.wayland` instead of the bar tooltip.
 
 Opacity is assigned to the shared icon-and-label row, so both types of content
 fade together. Closed pinned applications use normal-state opacity.
@@ -210,6 +258,11 @@ The settings gear opens a `KeyboardPanel` with four tabs:
 - Layout
 - Appearance
 
+The General tab lists pinned applications with Move up / Move down controls
+that persist `pinnedApps` through the same `settingChanged` path as other
+fields. Layout includes bar chrome. Behavior includes window previews and
+animation duration. Appearance includes `hoverOverridesActive`.
+
 The panel uses Omarchy's `Toggle`, `Dropdown`, `NumberField`,
 `TextField`, `PanelSectionHeader`, and `PanelSeparator` components.
 Keyboard focus works with pointer clicks and Tab; Escape closes the panel.
@@ -241,8 +294,8 @@ The repository is checked with:
 
 ```bash
 jq empty manifest.json examples/shell-entry.json
-qmlformat -n BarWidget.qml >/dev/null
-qmlformat -n TaskbarSettings.qml >/dev/null
+qmlformat -n src/BarWidget.qml taskbar/*.qml settings/*.qml settings/tabs/*.qml settings/fields/*.qml >/dev/null
+python3 scripts/bundle-qml.py --check
 omarchy plugin validate .
 omarchy restart shell
 omarchy-shell shell ping

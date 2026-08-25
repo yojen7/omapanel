@@ -46,5 +46,16 @@
   "showIcons": true,
   "showLabels": true,
   "showRunning": true,
-  "widthMode": "Adaptive"
+  "widthMode": "Adaptive",
+  "barTopPadding": 0,
+  "barBottomPadding": 0,
+  "barHorizontalPadding": 0,
+  "barBackgroundColor": "",
+  "barCornerRadius": "",
+  "hoverOverridesActive": true,
+  "animationDuration": 180,
+  "showWindowPreviews": false,
+  "previewDelay": 350,
+  "previewWidth": 320,
+  "previewHeight": 220
 }

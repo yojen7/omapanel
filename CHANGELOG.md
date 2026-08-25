@@ -4,6 +4,30 @@ All notable changes to OmaPanel are documented here.
 
 ## Unreleased
 
+- Bind settings tabs and fields through `panel` / `host` instead of a
+  self-bound `settingsPopup` property, so labels get popup text color and
+  toggles keep their saved values.
+- Split the taskbar widget and settings panel into focused QML files and
+  `// @include` fragments under `src/`, `taskbar/`, and `settings/`, plus
+  `TaskHelpers.js` and `TaskMatch.js`, so editable sources stay at most 150
+  lines.
+- Bundle those sources into the single committed `BarWidget.qml` entry point
+  with `scripts/bundle-qml.py`, so Omarchy still loads one QML file.
+- Drive settings tabs from a single list plus StackLayout instead of
+  four copy-pasted buttons and visible flags.
+
+## 1.11.0
+
+- Add bar chrome settings for top, bottom, and edge padding, optional
+  background color, and corner radius.
+- Add a switch that controls whether hover colors replace the active style
+  on the focused window.
+- Add optional live window previews on hover, with delay and size controls.
+- Drive item and indicator motion from a single animation-duration setting.
+- Reorder pinned applications from the General settings tab with Move up and
+  Move down.
+
+
 ## 1.10.0
 
 - Split item spacing between adjacent click targets so the visual gaps no

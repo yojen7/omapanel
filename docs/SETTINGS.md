@@ -9,7 +9,7 @@ OmaPanel stores its configuration in the `atagulalan.omapanel` widget entry in:
 The values in `manifest.json` are the plugin defaults. The settings panel
 writes toggle, dropdown, number, and text changes immediately. Press Escape to
 close the panel. Pinned applications are managed through the right-click menu
-instead of editing raw JSON in the form.
+instead of editing raw JSON in the form. The General tab can reorder pinned applications with Move up and Move down.
 
 Each closed pinned application occupies one launcher item. When it has running
 windows, every matching window is rendered as its own adjacent pinned item;
@@ -29,6 +29,14 @@ those windows are not duplicated in the dynamic running section.
 | `labelFormat` | string | `[APP_NAME] - [WINDOW_TITLE]` | Label template for open windows |
 | `maxRunningWindows` | integer | `12` | Maximum dynamic windows; range 1–30 |
 | `excludedClasses` | string | empty | Comma-separated, case-insensitive class regular expressions |
+| `showWindowPreviews` | boolean | `false` | Show a live thumbnail when hovering an open window |
+| `previewDelay` | integer | `350` | Milliseconds to wait before showing a window preview; range 0–1500 |
+| `previewWidth` | integer | `320` | Preview thumbnail width; range 160–640 |
+| `previewHeight` | integer | `220` | Preview thumbnail height; range 100–480 |
+| `animationDuration` | integer | `180` | Milliseconds for item and indicator animations; `0` disables motion |
+
+Closed pinned launchers keep the existing tooltip. Open windows hide that
+tooltip while a preview is scheduled or visible.
 
 ### Click actions
 
@@ -100,6 +108,19 @@ These values pass through Omarchy's `Style.space()` scaling so they follow the
 active shell density. Corner radius is a direct pixel value; `0` produces
 square item backgrounds.
 
+## Bar chrome
+
+| Key | Type | Default | Range | Description |
+|---|---:|---:|---:|---|
+| `barTopPadding` | integer | `0` | 0–16 | Space above the chip row, through `Style.space()` |
+| `barBottomPadding` | integer | `0` | 0–16 | Space below the chip row, through `Style.space()` |
+| `barHorizontalPadding` | integer | `0` | 0–24 | Space left and right of the chip row |
+| `barBackgroundColor` | hex or empty | empty | `#RRGGBB` / `#RRGGBBAA` | Widget chrome fill; empty draws no bar background |
+| `barCornerRadius` | numeric string or empty | empty | 0–32, or empty | Chrome radius; empty follows the theme; `0` is square |
+
+Vertical bar padding also shrinks chips so the extra inset is visible inside
+the Omarchy bar height. Horizontal padding increases the widget width.
+
 ## State appearance
 
 | Key | Default | Description |
@@ -114,6 +135,7 @@ square item backgrounds.
 | `activeBackgroundColor` | empty | Active item background; empty disables it |
 | `activeOpacity` | `100` | Active label and icon opacity, as a percentage |
 | `indicatorColor` | empty | Active-window indicator color |
+| `hoverOverridesActive` | `true` | Use hover colors when the pointer is over the focused window |
 
 Colors accept `#RRGGBB` and `#RRGGBBAA`. The final two digits in the
 eight-digit form are alpha: `00` is transparent and `ff` is opaque.
@@ -124,7 +146,7 @@ disabled when their values are empty.
 
 Opacity accepts values from 0 to 100 and applies to the foreground content as
 a unit, so labels, loaded application icons, and fallback letter icons fade
-together. Hover has priority over active, which has priority over normal.
+together. When `hoverOverridesActive` is `true` (the default), hover has priority over active, which has priority over normal. When it is `false`, the focused window keeps its active colors while hovered.
 
 The background uses a single visual layer with this priority:
 

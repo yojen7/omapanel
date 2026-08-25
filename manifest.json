@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "atagulalan.omapanel",
   "name": "OmaPanel",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "author": "atagulalan",
   "license": "MIT",
   "description": "Pinned launch-or-focus applications followed by live Hyprland windows.",
@@ -72,7 +72,18 @@
       "sectionSeparator": true,
       "maxLabelLength": 14,
       "maxRunningWindows": 12,
-      "excludedClasses": ""
+      "excludedClasses": "",
+      "barTopPadding": 0,
+      "barBottomPadding": 0,
+      "barHorizontalPadding": 0,
+      "barBackgroundColor": "",
+      "barCornerRadius": "",
+      "hoverOverridesActive": true,
+      "animationDuration": 180,
+      "showWindowPreviews": false,
+      "previewDelay": 350,
+      "previewWidth": 320,
+      "previewHeight": 220
     },
     "schema": [
       {
@@ -219,6 +230,51 @@
         "defaultValue": "Focus or Launch"
       },
       {
+        "key": "showWindowPreviews",
+        "type": "boolean",
+        "label": "Show window previews",
+        "description": "Show a live thumbnail when hovering an open window.",
+        "defaultValue": false
+      },
+      {
+        "key": "previewDelay",
+        "type": "integer",
+        "label": "Preview delay",
+        "description": "Milliseconds to wait before showing a window preview.",
+        "min": 0,
+        "max": 1500,
+        "step": 50,
+        "defaultValue": 350
+      },
+      {
+        "key": "previewWidth",
+        "type": "integer",
+        "label": "Preview width",
+        "min": 160,
+        "max": 640,
+        "step": 10,
+        "defaultValue": 320
+      },
+      {
+        "key": "previewHeight",
+        "type": "integer",
+        "label": "Preview height",
+        "min": 100,
+        "max": 480,
+        "step": 10,
+        "defaultValue": 220
+      },
+      {
+        "key": "animationDuration",
+        "type": "integer",
+        "label": "Animation duration",
+        "description": "Milliseconds for item and indicator animations. 0 disables motion.",
+        "min": 0,
+        "max": 500,
+        "step": 10,
+        "defaultValue": 180
+      },
+      {
         "key": "labelFormat",
         "type": "string",
         "label": "Running-app label format",
@@ -300,6 +356,47 @@
         "type": "string",
         "label": "Item corner radius",
         "description": "Optional radius from 0 to 32. Leave empty to follow the theme; 0 makes item backgrounds square.",
+        "defaultValue": ""
+      },
+      {
+        "key": "barTopPadding",
+        "type": "integer",
+        "label": "Bar top padding",
+        "min": 0,
+        "max": 16,
+        "step": 1,
+        "defaultValue": 0
+      },
+      {
+        "key": "barBottomPadding",
+        "type": "integer",
+        "label": "Bar bottom padding",
+        "min": 0,
+        "max": 16,
+        "step": 1,
+        "defaultValue": 0
+      },
+      {
+        "key": "barHorizontalPadding",
+        "type": "integer",
+        "label": "Bar edge padding",
+        "min": 0,
+        "max": 24,
+        "step": 1,
+        "defaultValue": 0
+      },
+      {
+        "key": "barBackgroundColor",
+        "type": "string",
+        "label": "Bar background color",
+        "description": "Hex color (#RRGGBB or #RRGGBBAA). Empty disables the bar chrome fill.",
+        "defaultValue": ""
+      },
+      {
+        "key": "barCornerRadius",
+        "type": "string",
+        "label": "Bar corner radius",
+        "description": "Optional radius from 0 to 32. Leave empty to follow the theme; 0 makes the bar chrome square.",
         "defaultValue": ""
       },
       {
@@ -421,6 +518,13 @@
         "label": "Hover background color",
         "description": "Hex color (#RRGGBB or #RRGGBBAA). Empty uses the theme hover fill.",
         "defaultValue": ""
+      },
+      {
+        "key": "hoverOverridesActive",
+        "type": "boolean",
+        "label": "Hover overrides active",
+        "description": "Use hover colors when the pointer is over the focused window.",
+        "defaultValue": true
       },
       {
         "key": "activeBackgroundColor",

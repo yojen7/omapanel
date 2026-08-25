@@ -30,6 +30,11 @@ The plugin uses the permanent namespaced ID `atagulalan.omapanel`.
 - Normal, hover, and active states each have independent foreground,
   background, font-weight, and foreground-opacity controls.
 - Application icon colors can be inverted without changing their transparency.
+- Optional bar chrome can add padding, a background fill, and rounding around
+  the chip row.
+- Hover can keep or replace the active style on the focused window.
+- Hovering an open window can show a live preview thumbnail.
+- Pinned applications can be reordered from the settings panel.
 - Active-window indicators support `Underline`, `Top`, `Dot`, and `None`.
 - Labels support `[APP_NAME]` and `[WINDOW_TITLE]` placeholders.
 - Adaptive and fixed-width layouts include maximum width and ellipsis handling.
@@ -44,8 +49,8 @@ The plugin uses the permanent namespaced ID `atagulalan.omapanel`.
 
 - The built-in settings panel is split into General, Behavior, Layout, and
   Appearance tabs, saves changes immediately, and can restore manifest defaults.
-- Colors, icons, typography, padding, spacing, rounding, filters, and separators are
-  configurable.
+- Colors, icons, typography, padding, spacing, rounding, filters, separators,
+  bar chrome, previews, and animation speed are configurable.
 
 ## Requirements
 
@@ -164,14 +169,32 @@ OmaPanel follows the Omarchy plugin manifest contract. Work in a user-owned
 plugin directory and never edit the packaged shell under
 `/usr/share/omarchy/`.
 
+Edit the split sources, not the generated entry point:
+
+- `src/BarWidget.qml` and `src/*.inc` — settings, window lists, and interaction
+- `taskbar/` — chrome, chips, menus, and previews
+- `settings/` — settings panel, tabs, and field controls
+- `TaskHelpers.js` / `TaskMatch.js` — shared sanitizers (sibling imports)
+
+Keep source files, including `// @include` fragments, at most 150 lines.
+
+`BarWidget.qml` is generated and committed so `omarchy plugin add` can load a
+single file. Rebuild it after source changes:
+
+```bash
+python3 scripts/bundle-qml.py
+python3 scripts/bundle-qml.py --watch   # rebuild on source saves
+```
+
 Validate the repository before publishing:
 
 ```bash
 /usr/lib/qt6/bin/qsb --qt6 --qsbversion 64 -O \
   -o shaders/invert.frag.qsb shaders/invert.frag
 jq empty manifest.json examples/shell-entry.json
-qmlformat -n BarWidget.qml >/dev/null
-qmlformat -n TaskbarSettings.qml >/dev/null
+qmlformat -n src/BarWidget.qml taskbar/*.qml settings/*.qml \
+  settings/tabs/*.qml settings/fields/*.qml >/dev/null
+python3 scripts/bundle-qml.py --check
 omarchy plugin validate .
 ```
 

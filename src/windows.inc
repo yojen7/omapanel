@@ -1,0 +1,114 @@
+    function appMatchesWindow(app, toplevel) {
+        if (!app || !patternMatches(String(app.match || ""), windowCandidates(toplevel)))
+            return false;
+
+        // When a pin declares desktopId, refuse windows whose resolved desktop entry
+        // is a different app (limits broad regex + wrong Electron/.desktop pairing).
+        var expected = normalizeDesktopId(app.desktopId);
+        if (!expected)
+            return true;
+
+        var entry = windowDesktopEntry(toplevel);
+        if (!entry)
+            return true;
+
+        var actual = normalizeDesktopId(entry.id);
+        if (!actual)
+            return true;
+
+        return actual === expected;
+    }
+
+    function isPinnedWindow(toplevel) {
+        for (var i = 0; i < pinnedApps.length; i++) {
+            if (appMatchesWindow(pinnedApps[i], toplevel))
+                return true;
+
+        }
+        return false;
+    }
+
+    function isExcludedWindow(toplevel) {
+        if (!excludedClasses.trim())
+            return false;
+
+        var patterns = excludedClasses.split(",");
+        var candidates = windowCandidates(toplevel);
+        for (var i = 0; i < patterns.length; i++) {
+            if (patternMatches(patterns[i].trim(), candidates))
+                return true;
+
+        }
+        return false;
+    }
+
+    function windowClass(toplevel) {
+        var candidates = windowCandidates(toplevel);
+        return candidates.length > 0 ? candidates[0] : "";
+    }
+
+    function windowWorkspaceId(toplevel) {
+        var ipc = toplevel ? (toplevel.lastIpcObject || null) : null;
+        var workspace = ipc ? (ipc.workspace || null) : null;
+        var id = workspace ? Number(workspace.id) : 0;
+        return isNaN(id) ? 0 : id;
+    }
+
+    function startsWorkspaceGroup(index, toplevel) {
+        if (!groupRunningByWorkspace || index <= 0)
+            return false;
+
+        return windowWorkspaceId(toplevel) !== windowWorkspaceId(runningWindows[index - 1]);
+    }
+
+    function windowDesktopEntry(toplevel) {
+        var candidates = windowCandidates(toplevel);
+        for (var i = 0; i < candidates.length; i++) {
+            if (!isPlausibleAppId(candidates[i]))
+                continue;
+
+            var entry = DesktopEntries.heuristicLookup(candidates[i]);
+            if (entry)
+                return entry;
+
+        }
+        return null;
+    }
+
+    function windowLabel(toplevel) {
+        var entry = windowDesktopEntry(toplevel);
+        if (entry && entry.name)
+            return asPlainUiText(String(entry.name));
+
+        var ipc = toplevel ? (toplevel.lastIpcObject || null) : null;
+        var tags = ipc && Array.isArray(ipc.tags) ? ipc.tags : [];
+        for (var i = 0; i < tags.length; i++) {
+            if (String(tags[i]).indexOf("terminal") === 0)
+                return "Terminal";
+
+        }
+        var appClass = windowClass(toplevel);
+        if (appClass) {
+            var pieces = appClass.split(".");
+            var value = pieces[pieces.length - 1].replace(/[-_]+/g, " ");
+            return asPlainUiText(value.charAt(0).toUpperCase() + value.slice(1));
+        }
+        return windowTitle(toplevel) || "Window";
+    }
+
+    function windowTitle(toplevel) {
+        if (!toplevel)
+            return "";
+
+        var directTitle = toplevel.title ? String(toplevel.title).trim() : "";
+        if (directTitle)
+            return asPlainUiText(directTitle);
+
+        var ipc = toplevel.lastIpcObject || null;
+        return ipc && ipc.title ? asPlainUiText(String(ipc.title).trim()) : "";
+    }
+
+    function windowIcon(toplevel) {
+        var entry = windowDesktopEntry(toplevel);
+        return sanitizeIconName(entry && entry.icon ? entry.icon : fallbackIconName);
+    }
