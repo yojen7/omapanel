@@ -20,7 +20,7 @@ NumberField {
     foreground: host.contentForeground
     accent: Color.accent
     fontFamily: host.contentFontFamily
-    onModified: function(nextValue) {
+    onModified: function (nextValue) {
         host.change(settingKey, nextValue);
     }
 }

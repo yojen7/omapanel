@@ -3,22 +3,14 @@ import QtQuick.Controls as QQC
 import QtQuick.Layouts
 import qs.Commons
 import qs.Ui
-import "tabs"
+import "pages"
 
 KeyboardPanel {
     id: settingsPopup
 
     property var values: ({})
-    property int currentTab: 0
-    readonly property var tabs: [{
-            "label": "General"
-        }, {
-            "label": "Behavior"
-        }, {
-            "label": "Layout"
-        }, {
-            "label": "Appearance"
-        }]
+    property string currentPage: ""
+    // @include SettingsCatalog.inc
     readonly property color contentForeground: Color.popups.text
     readonly property string contentFontFamily: bar ? bar.fontFamily : Style.font.family
     readonly property var pinnedAppsModel: {
@@ -32,7 +24,7 @@ KeyboardPanel {
     }
 
     signal settingChanged(string key, var value)
-    signal resetRequested()
+    signal resetRequested
 
     function value(key, fallback) {
         var current = values ? values[key] : undefined;
@@ -56,8 +48,13 @@ KeyboardPanel {
         settingChanged(key, nextValue);
     }
 
-    function selectTab(index) {
-        currentTab = index;
+    function openPage(pageId) {
+        currentPage = pageId;
+        settingsFlick.contentY = 0;
+    }
+
+    function goHome() {
+        currentPage = "";
         settingsFlick.contentY = 0;
     }
 
@@ -65,7 +62,7 @@ KeyboardPanel {
         var apps = pinnedAppsModel.slice();
         var next = index + delta;
         if (next < 0 || next >= apps.length)
-            return ;
+            return;
 
         var item = apps[index];
         apps[index] = apps[next];
@@ -85,7 +82,12 @@ KeyboardPanel {
         activeFocusOnTab: true
         contentWidth: width
         contentHeight: settingsColumn.implicitHeight
-        Keys.onEscapePressed: function(event) {
+        Keys.onEscapePressed: function (event) {
+            if (settingsPopup.currentPage !== "") {
+                settingsPopup.goHome();
+                event.accepted = true;
+                return;
+            }
             settingsPopup.close();
             event.accepted = true;
         }
@@ -102,7 +104,7 @@ KeyboardPanel {
 
             // @include SettingsHeader.inc
 
-            // @include SettingsTabs.inc
+            // @include SettingsPages.inc
 
         }
 
@@ -111,7 +113,5 @@ KeyboardPanel {
 
             policy: QQC.ScrollBar.AsNeeded
         }
-
     }
-
 }

@@ -36,24 +36,22 @@ Column {
         onTextEdited: {
             if (text.trim() === "")
                 host.change(parent.settingKey, "");
-
         }
         onEditingFinished: {
             var nextValue = text.trim();
             if (nextValue === "") {
                 host.change(parent.settingKey, "");
-                return ;
+                return;
             }
             var parsed = Number(nextValue);
             if (isNaN(parsed)) {
                 text = "";
                 host.change(parent.settingKey, "");
-                return ;
+                return;
             }
             var clamped = Math.max(parent.minimumValue, Math.min(parent.maximumValue, Math.round(parsed)));
             text = String(clamped);
             host.change(parent.settingKey, String(clamped));
         }
     }
-
 }

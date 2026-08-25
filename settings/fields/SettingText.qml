@@ -30,5 +30,4 @@ Column {
         font.family: host.contentFontFamily
         onEditingFinished: host.change(parent.settingKey, text.trim())
     }
-
 }

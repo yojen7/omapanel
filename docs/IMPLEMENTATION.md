@@ -37,12 +37,8 @@ taskbar/
         └── WindowPreview.qml
 settings/
         ├── TaskbarSettings.qml
-        ├── SettingsTabBar.qml
-        ├── tabs/
-        │       ├── GeneralTab.qml
-        │       ├── BehaviorTab.qml
-        │       ├── LayoutTab.qml
-        │       └── AppearanceTab.qml
+        ├── SettingsHub.qml
+        ├── pages/
         └── fields/
                 ├── SettingToggle.qml
                 ├── SettingDropdown.qml
@@ -54,8 +50,9 @@ settings/
 
 `src/BarWidget.qml` owns settings, window discovery, pinned applications,
 interaction, and persistence. Taskbar chrome, chips, menus, and previews live
-under `taskbar/`. The settings panel, its tabs, and field controls live under
-`settings/`. Shared sanitizers live in `TaskHelpers.js` and `TaskMatch.js`.
+under `taskbar/`. The settings panel, its category pages, and field controls
+live under `settings/`. Shared sanitizers live in `TaskHelpers.js` and
+`TaskMatch.js`.
 
 The plugin runs inside the existing Omarchy Shell process. It never starts a
 second Quickshell instance.
@@ -189,6 +186,9 @@ The remaining label width is passed to `Text.ElideRight`.
 `itemSpacing` is split evenly into transparent left and right hit padding on
 every item. Adjacent hit areas therefore meet with no dead zone while their
 painted backgrounds and active indicators retain the configured visual gap.
+When `trimEdgeItemGaps` is on (the default), the first chip drops its left
+half-gap and the last chip drops its right half-gap so spacing does not pad
+the bar chrome.
 
 ## Visual states
 
@@ -251,21 +251,26 @@ normalized `pinnedApps` array, and call
 
 ## Settings panel
 
-The settings gear opens a `KeyboardPanel` with four tabs:
+The settings gear opens a `KeyboardPanel` with a category hub, then a
+detail page:
 
-- General
-- Behavior
-- Layout
-- Appearance
+- Applications — pins, running windows, and class filters
+- Clicks — mouse and modifier actions
+- Icons & labels — visibility, format, icon size, and font size
+- Chip layout — width modes, padding, gaps, and item rounding
+- Bar — chrome padding, fill, and separators
+- Colors — normal, hover, and active styles
+- Indicator — active-window mark
+- Previews — hover thumbnails and animation duration
 
-The General tab lists pinned applications with Move up / Move down controls
-that persist `pinnedApps` through the same `settingChanged` path as other
-fields. Layout includes bar chrome. Behavior includes window previews and
-animation duration. Appearance includes `hoverOverridesActive`.
+The Applications page lists pinned applications with Move up / Move down
+controls that persist `pinnedApps` through the same `settingChanged` path as
+other fields.
 
 The panel uses Omarchy's `Toggle`, `Dropdown`, `NumberField`,
 `TextField`, `PanelSectionHeader`, and `PanelSeparator` components.
-Keyboard focus works with pointer clicks and Tab; Escape closes the panel.
+Keyboard focus works with pointer clicks and Tab. Escape returns to the
+category list; Escape on that list closes the panel.
 
 Each control emits `settingChanged(key, value)`. The bar copies its current
 settings object, updates one field, and persists it through
@@ -294,7 +299,7 @@ The repository is checked with:
 
 ```bash
 jq empty manifest.json examples/shell-entry.json
-qmlformat -n src/BarWidget.qml taskbar/*.qml settings/*.qml settings/tabs/*.qml settings/fields/*.qml >/dev/null
+qmlformat -n src/BarWidget.qml taskbar/*.qml settings/*.qml settings/pages/*.qml settings/fields/*.qml >/dev/null
 python3 scripts/bundle-qml.py --check
 omarchy plugin validate .
 omarchy restart shell

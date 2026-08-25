@@ -8,8 +8,10 @@ OmaPanel stores its configuration in the `atagulalan.omapanel` widget entry in:
 
 The values in `manifest.json` are the plugin defaults. The settings panel
 writes toggle, dropdown, number, and text changes immediately. Press Escape to
-close the panel. Pinned applications are managed through the right-click menu
-instead of editing raw JSON in the form. The General tab can reorder pinned applications with Move up and Move down.
+return to the category list, or to close the panel from that list. Pinned
+applications are managed through the right-click menu instead of editing raw
+JSON in the form. The Applications page can reorder pinned applications with
+Move up and Move down.
 
 Each closed pinned application occupies one launcher item. When it has running
 windows, every matching window is rendered as its own adjacent pinned item;
@@ -40,7 +42,7 @@ tooltip while a preview is scheduled or visible.
 
 ### Click actions
 
-The Behavior tab configures `leftClickAction`, `rightClickAction`,
+The Clicks page configures `leftClickAction`, `rightClickAction`,
 `middleClickAction`, `ctrlClickAction`, `shiftClickAction`, and
 `altClickAction`. Modifier actions apply to left click. Available actions are:
 
@@ -98,6 +100,7 @@ font size automatically.
 | Key | Type | Default | Range | Description |
 |---|---:|---:|---:|---|
 | `itemSpacing` | integer | `4` | 0–24 | Visual gap between items, included in adjacent click targets |
+| `trimEdgeItemGaps` | boolean | `true` | | Drop outer item-spacing halves on the first and last chips |
 | `itemHorizontalPadding` | integer | `8` | 0–24 | Left and right item padding |
 | `itemVerticalPadding` | integer | `12` | 0–16 | Top and bottom item padding |
 | `itemCornerRadius` | numeric string or empty | empty | 0–32, or empty | Item background radius; empty follows the theme |

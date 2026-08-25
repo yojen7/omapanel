@@ -12,6 +12,9 @@ Item {
     implicitHeight: content.implicitHeight + (taskbar ? taskbar.barPadTop + taskbar.barPadBottom : 0)
     width: implicitWidth
     height: implicitHeight
+    readonly property bool trimEdges: !!(taskbar && taskbar.trimEdgeItemGaps)
+    readonly property int pinnedCount: taskbar && taskbar.pinnedItems ? taskbar.pinnedItems.length : 0
+    readonly property int runningCount: taskbar && taskbar.runningWindows ? taskbar.runningWindows.length : 0
 
     Rectangle {
         anchors.fill: parent
@@ -36,12 +39,15 @@ Item {
             model: taskbar ? taskbar.pinnedItems : []
 
             AppChip {
+                required property int index
                 required property var modelData
 
                 taskbar: taskbar
                 app: modelData && modelData.app ? modelData.app : null
                 appWindow: modelData ? modelData.window : null
                 pinned: true
+                includeLeadingHitPadding: !chrome.trimEdges || index > 0
+                includeTrailingHitPadding: !chrome.trimEdges || index < chrome.pinnedCount - 1 || chrome.runningCount > 0
             }
 
         }
@@ -70,6 +76,8 @@ Item {
                     app: null
                     appWindow: parent.modelData
                     pinned: false
+                    includeLeadingHitPadding: !chrome.trimEdges || parent.index > 0 || chrome.pinnedCount > 0
+                    includeTrailingHitPadding: !chrome.trimEdges || parent.index < chrome.runningCount - 1
                 }
 
             }

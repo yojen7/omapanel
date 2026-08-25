@@ -14,8 +14,8 @@
         anchors.fill: parent
         anchors.topMargin: Style.space(1)
         anchors.bottomMargin: Style.space(1)
-        anchors.leftMargin: chip.hitHorizontalPadding + Style.space(1)
-        anchors.rightMargin: chip.hitHorizontalPadding + Style.space(1)
+        anchors.leftMargin: chip.hitPadLeft + Style.space(1)
+        anchors.rightMargin: chip.hitPadRight + Style.space(1)
         radius: chip.ready ? taskbar.itemCornerRadius : 4
         color: showFill ? (chip.useHoverStyle ? taskbar.hoverBackgroundColor : (persistentActive ? taskbar.activeBackgroundColor : taskbar.normalBackgroundColor)) : "transparent"
         opacity: showFill ? 1 : 0

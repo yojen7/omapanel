@@ -45,6 +45,7 @@
       "maxAdaptiveWidth": 280,
       "activeIndicator": "Underline",
       "itemSpacing": 4,
+      "trimEdgeItemGaps": true,
       "itemHorizontalPadding": 8,
       "itemVerticalPadding": 12,
       "itemCornerRadius": "",
@@ -332,6 +333,13 @@
         "max": 24,
         "step": 1,
         "defaultValue": 4
+      },
+      {
+        "key": "trimEdgeItemGaps",
+        "type": "boolean",
+        "label": "Trim start/end item gaps",
+        "description": "Drop the outer half of item spacing on the first and last chips so gaps stay between items only.",
+        "defaultValue": true
       },
       {
         "key": "itemHorizontalPadding",

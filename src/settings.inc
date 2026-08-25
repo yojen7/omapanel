@@ -18,6 +18,7 @@
     readonly property int maxAdaptiveWidth: clampedInt("maxAdaptiveWidth", 280, 24)
     readonly property string activeIndicator: String(setting("activeIndicator", "Underline"))
     readonly property int itemSpacing: clampedInt("itemSpacing", 4, 0)
+    readonly property bool trimEdgeItemGaps: boolSetting("trimEdgeItemGaps", true)
     readonly property int itemHorizontalPadding: clampedInt("itemHorizontalPadding", 8, 0)
     readonly property int itemVerticalPadding: clampedInt("itemVerticalPadding", 12, 0)
     readonly property real itemCornerRadius: resolvedItemCornerRadius(setting("itemCornerRadius", ""))

@@ -51,8 +51,12 @@
     readonly property int iconExtent: Style.space(taskbar ? taskbar.iconSize : 18)
     readonly property real labelHeight: effectiveShowLabels ? labelMetrics.height : 0
     readonly property real contentSpacing: effectiveShowIcons && effectiveShowLabels ? Style.space(ready ? taskbar.iconLabelSpacing : 8) : 0
+    property bool includeLeadingHitPadding: true
+    property bool includeTrailingHitPadding: true
     readonly property real hitHorizontalPadding: Style.space(ready ? taskbar.itemSpacing : 4) / 2
-    readonly property real hitHorizontalPaddingExtent: hitHorizontalPadding * 2
+    readonly property real hitPadLeft: includeLeadingHitPadding ? hitHorizontalPadding : 0
+    readonly property real hitPadRight: includeTrailingHitPadding ? hitHorizontalPadding : 0
+    readonly property real hitHorizontalPaddingExtent: hitPadLeft + hitPadRight
     readonly property real horizontalPaddingExtent: Style.space((ready ? taskbar.itemHorizontalPadding : 8) * 2)
     readonly property real iconContentExtent: effectiveShowIcons ? iconExtent : 0
     readonly property real nonLabelExtent: horizontalPaddingExtent + iconContentExtent + contentSpacing

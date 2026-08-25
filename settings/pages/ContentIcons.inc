@@ -4,25 +4,9 @@
 
     PanelSectionHeader {
         width: parent.width
-        text: "WINDOWS & LABELS"
+        text: "VISIBILITY"
         foreground: panel.contentForeground
         fontFamily: panel.contentFontFamily
-    }
-
-    SettingToggle {
-        host: panel
-        settingKey: "showRunning"
-        settingLabel: "Show running windows"
-        settingDescription: "Append non-pinned Hyprland windows."
-        fallbackValue: true
-    }
-
-    SettingToggle {
-        host: panel
-        settingKey: "groupRunningByWorkspace"
-        settingLabel: "Group by workspace"
-        settingDescription: "Sort dynamic windows and separate workspace groups."
-        fallbackValue: true
     }
 
     SettingToggle {
@@ -69,4 +53,39 @@
         settingLabel: "Label format"
         fallbackValue: "[APP_NAME] - [WINDOW_TITLE]"
         placeholder: "[APP_NAME] - [WINDOW_TITLE]"
+    }
+
+    Row {
+        width: parent.width
+        spacing: Style.space(10)
+
+        SettingNumber {
+            host: panel
+            width: (parent.width - parent.spacing) / 2
+            settingKey: "iconSize"
+            settingLabel: "Icon size"
+            fallbackValue: 18
+            minimumValue: 8
+            maximumValue: 32
+        }
+
+        SettingNumber {
+            host: panel
+            width: (parent.width - parent.spacing) / 2
+            settingKey: "iconLabelSpacing"
+            settingLabel: "Icon / label gap"
+            fallbackValue: 8
+            minimumValue: 0
+            maximumValue: 20
+        }
+
+    }
+
+    SettingOptionalNumber {
+        host: panel
+        settingKey: "fontSize"
+        settingLabel: "Font size"
+        minimumValue: 8
+        maximumValue: 24
+        placeholder: "Auto"
     }

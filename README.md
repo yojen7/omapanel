@@ -25,8 +25,8 @@ The plugin uses the permanent namespaced ID `atagulalan.omapanel`.
   application; scrolling a grouped running window cycles focus inside its
   workspace.
 - Closed pinned applications can stay compact with icon-only mode.
-- A dedicated Behavior tab maps left, right, middle, Ctrl+left, Shift+left,
-  and Alt+left clicks to focus, launch, window, pin, menu, or settings actions.
+- Click mappings for left, right, middle, Ctrl+left, Shift+left, and Alt+left
+  cover focus, launch, window, pin, menu, and settings actions.
 - Normal, hover, and active states each have independent foreground,
   background, font-weight, and foreground-opacity controls.
 - Application icon colors can be inverted without changing their transparency.
@@ -47,8 +47,8 @@ The plugin uses the permanent namespaced ID `atagulalan.omapanel`.
   - Close Window and Close N Windows;
   - quick access to OmaPanel Settings.
 
-- The built-in settings panel is split into General, Behavior, Layout, and
-  Appearance tabs, saves changes immediately, and can restore manifest defaults.
+- The built-in settings panel opens on a category list, then a detail page for
+  each group. Changes save immediately and can restore manifest defaults.
 - Colors, icons, typography, padding, spacing, rounding, filters, separators,
   bar chrome, previews, and animation speed are configurable.
 
@@ -173,7 +173,7 @@ Edit the split sources, not the generated entry point:
 
 - `src/BarWidget.qml` and `src/*.inc` — settings, window lists, and interaction
 - `taskbar/` — chrome, chips, menus, and previews
-- `settings/` — settings panel, tabs, and field controls
+- `settings/` — settings panel, category pages, and field controls
 - `TaskHelpers.js` / `TaskMatch.js` — shared sanitizers (sibling imports)
 
 Keep source files, including `// @include` fragments, at most 150 lines.
@@ -193,7 +193,7 @@ Validate the repository before publishing:
   -o shaders/invert.frag.qsb shaders/invert.frag
 jq empty manifest.json examples/shell-entry.json
 qmlformat -n src/BarWidget.qml taskbar/*.qml settings/*.qml \
-  settings/tabs/*.qml settings/fields/*.qml >/dev/null
+  settings/pages/*.qml settings/fields/*.qml >/dev/null
 python3 scripts/bundle-qml.py --check
 omarchy plugin validate .
 ```

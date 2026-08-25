@@ -19,7 +19,7 @@
             settingKey: "leftClickAction"
             settingLabel: "Left click"
             fallbackValue: "Focus or Launch"
-            settingOptions: behaviorTab.actionOptions
+            settingOptions: panel.actionOptions
         }
 
         SettingDropdown {
@@ -28,7 +28,7 @@
             settingKey: "rightClickAction"
             settingLabel: "Right click"
             fallbackValue: "Open Context Menu"
-            settingOptions: behaviorTab.actionOptions
+            settingOptions: panel.actionOptions
         }
 
     }
@@ -43,7 +43,7 @@
             settingKey: "middleClickAction"
             settingLabel: "Middle click"
             fallbackValue: "Do Nothing"
-            settingOptions: behaviorTab.actionOptions
+            settingOptions: panel.actionOptions
         }
 
         SettingDropdown {
@@ -52,7 +52,7 @@
             settingKey: "ctrlClickAction"
             settingLabel: "Ctrl + left click"
             fallbackValue: "Focus or Launch"
-            settingOptions: behaviorTab.actionOptions
+            settingOptions: panel.actionOptions
         }
 
     }
@@ -67,7 +67,7 @@
             settingKey: "shiftClickAction"
             settingLabel: "Shift + left click"
             fallbackValue: "Focus or Launch"
-            settingOptions: behaviorTab.actionOptions
+            settingOptions: panel.actionOptions
         }
 
         SettingDropdown {
@@ -76,7 +76,7 @@
             settingKey: "altClickAction"
             settingLabel: "Alt + left click"
             fallbackValue: "Focus or Launch"
-            settingOptions: behaviorTab.actionOptions
+            settingOptions: panel.actionOptions
         }
 
     }

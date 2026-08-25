@@ -18,6 +18,15 @@ PopupCard {
     bar: taskbar ? taskbar.bar : null
     open: !!(taskbar && taskbar.showWindowPreviews && taskbar.previewToplevel !== null && taskbar.previewAnchor !== null)
     triggerMode: "hover"
+    onAnchorItemChanged: {
+        if (!previewCard.open)
+            return ;
+
+        Qt.callLater(function() {
+            if (previewCard.open)
+                previewCard.anchor.updateAnchor();
+        });
+    }
     padding: Style.space(8)
     contentWidth: previewCard.fittedContentWidth(Style.space(taskbar ? taskbar.previewWidth : 320))
     contentHeight: previewCard.fittedContentHeight(Style.space(taskbar ? taskbar.previewHeight : 220) + Style.space(28), Style.space(480))

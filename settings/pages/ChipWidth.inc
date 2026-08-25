@@ -4,7 +4,7 @@
 
     PanelSectionHeader {
         width: parent.width
-        text: "WIDTH & LIMITS"
+        text: "WIDTH"
         foreground: panel.contentForeground
         fontFamily: panel.contentFontFamily
     }
@@ -45,28 +45,11 @@
 
     }
 
-    Row {
-        width: parent.width
-        spacing: Style.space(10)
-
-        SettingNumber {
-            host: panel
-            width: (parent.width - parent.spacing) / 2
-            settingKey: "maxLabelLength"
-            settingLabel: "Max label chars"
-            fallbackValue: 14
-            minimumValue: 4
-            maximumValue: 40
-        }
-
-        SettingNumber {
-            host: panel
-            width: (parent.width - parent.spacing) / 2
-            settingKey: "maxRunningWindows"
-            settingLabel: "Max windows"
-            fallbackValue: 12
-            minimumValue: 1
-            maximumValue: 30
-        }
-
+    SettingNumber {
+        host: panel
+        settingKey: "maxLabelLength"
+        settingLabel: "Max label chars"
+        fallbackValue: 14
+        minimumValue: 4
+        maximumValue: 40
     }

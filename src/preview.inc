@@ -31,7 +31,7 @@
         }
         pendingPreviewAnchor = anchor;
         pendingPreviewToplevel = toplevel;
-        if (previewDelay <= 0)
+        if (previewDelay <= 0 || previewToplevel !== null)
             commitPreview(anchor, toplevel);
         else
             previewTimer.restart();

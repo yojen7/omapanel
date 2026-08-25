@@ -4,8 +4,6 @@ import qs.Ui
 import "../fields"
 
 Column {
-    id: appearanceTab
-
     required property var panel
 
     width: parent.width
@@ -40,7 +38,4 @@ Column {
         // @include AppearanceHover.inc
         // @include AppearanceActive.inc
     }
-
-    // @include AppearanceIndicator.inc
-
 }

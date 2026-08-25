@@ -4,17 +4,13 @@ import qs.Ui
 import "../fields"
 
 Column {
-    id: layoutSizeTab
-
     required property var panel
 
     width: parent.width
     spacing: Style.space(12)
 
-    // @include LayoutBar.inc
+    // @include ChipWidth.inc
 
-    // @include LayoutSize.inc
-
-    // @include LayoutFilters.inc
+    // @include ChipSpacing.inc
 
 }

@@ -45,6 +45,7 @@ BarWidget {
     readonly property int maxAdaptiveWidth: clampedInt("maxAdaptiveWidth", 280, 24)
     readonly property string activeIndicator: String(setting("activeIndicator", "Underline"))
     readonly property int itemSpacing: clampedInt("itemSpacing", 4, 0)
+    readonly property bool trimEdgeItemGaps: boolSetting("trimEdgeItemGaps", true)
     readonly property int itemHorizontalPadding: clampedInt("itemHorizontalPadding", 8, 0)
     readonly property int itemVerticalPadding: clampedInt("itemVerticalPadding", 12, 0)
     readonly property real itemCornerRadius: resolvedItemCornerRadius(setting("itemCornerRadius", ""))
@@ -730,7 +731,7 @@ BarWidget {
         }
         pendingPreviewAnchor = anchor;
         pendingPreviewToplevel = toplevel;
-        if (previewDelay <= 0)
+        if (previewDelay <= 0 || previewToplevel !== null)
             commitPreview(anchor, toplevel);
         else
             previewTimer.restart();
@@ -1099,8 +1100,12 @@ BarWidget {
         readonly property int iconExtent: Style.space(taskbar ? taskbar.iconSize : 18)
         readonly property real labelHeight: effectiveShowLabels ? labelMetrics.height : 0
         readonly property real contentSpacing: effectiveShowIcons && effectiveShowLabels ? Style.space(ready ? taskbar.iconLabelSpacing : 8) : 0
+        property bool includeLeadingHitPadding: true
+        property bool includeTrailingHitPadding: true
         readonly property real hitHorizontalPadding: Style.space(ready ? taskbar.itemSpacing : 4) / 2
-        readonly property real hitHorizontalPaddingExtent: hitHorizontalPadding * 2
+        readonly property real hitPadLeft: includeLeadingHitPadding ? hitHorizontalPadding : 0
+        readonly property real hitPadRight: includeTrailingHitPadding ? hitHorizontalPadding : 0
+        readonly property real hitHorizontalPaddingExtent: hitPadLeft + hitPadRight
         readonly property real horizontalPaddingExtent: Style.space((ready ? taskbar.itemHorizontalPadding : 8) * 2)
         readonly property real iconContentExtent: effectiveShowIcons ? iconExtent : 0
         readonly property real nonLabelExtent: horizontalPaddingExtent + iconContentExtent + contentSpacing
@@ -1208,8 +1213,8 @@ BarWidget {
             anchors.fill: parent
             anchors.topMargin: Style.space(1)
             anchors.bottomMargin: Style.space(1)
-            anchors.leftMargin: chip.hitHorizontalPadding + Style.space(1)
-            anchors.rightMargin: chip.hitHorizontalPadding + Style.space(1)
+            anchors.leftMargin: chip.hitPadLeft + Style.space(1)
+            anchors.rightMargin: chip.hitPadRight + Style.space(1)
             radius: chip.ready ? taskbar.itemCornerRadius : 4
             color: showFill ? (chip.useHoverStyle ? taskbar.hoverBackgroundColor : (persistentActive ? taskbar.activeBackgroundColor : taskbar.normalBackgroundColor)) : "transparent"
             opacity: showFill ? 1 : 0
@@ -1346,6 +1351,9 @@ BarWidget {
         implicitHeight: content.implicitHeight + (taskbar ? taskbar.barPadTop + taskbar.barPadBottom : 0)
         width: implicitWidth
         height: implicitHeight
+        readonly property bool trimEdges: !!(taskbar && taskbar.trimEdgeItemGaps)
+        readonly property int pinnedCount: taskbar && taskbar.pinnedItems ? taskbar.pinnedItems.length : 0
+        readonly property int runningCount: taskbar && taskbar.runningWindows ? taskbar.runningWindows.length : 0
 
         Rectangle {
             anchors.fill: parent
@@ -1369,11 +1377,14 @@ BarWidget {
                 model: taskbar ? taskbar.pinnedItems : []
 
                 AppChip {
+                    required property int index
                     required property var modelData
 
                     app: modelData && modelData.app ? modelData.app : null
                     appWindow: modelData ? modelData.window : null
                     pinned: true
+                    includeLeadingHitPadding: !chrome.trimEdges || index > 0
+                    includeTrailingHitPadding: !chrome.trimEdges || index < chrome.pinnedCount - 1 || chrome.runningCount > 0
                 }
 
             }
@@ -1399,6 +1410,8 @@ BarWidget {
                         app: null
                         appWindow: parent.modelData
                         pinned: false
+                        includeLeadingHitPadding: !chrome.trimEdges || parent.index > 0 || chrome.pinnedCount > 0
+                        includeTrailingHitPadding: !chrome.trimEdges || parent.index < chrome.runningCount - 1
                     }
 
                 }
@@ -1635,6 +1648,15 @@ BarWidget {
         bar: taskbar ? taskbar.bar : null
         open: !!(taskbar && taskbar.showWindowPreviews && taskbar.previewToplevel !== null && taskbar.previewAnchor !== null)
         triggerMode: "hover"
+        onAnchorItemChanged: {
+            if (!previewCard.open)
+                return ;
+
+            Qt.callLater(function() {
+                if (previewCard.open)
+                    previewCard.anchor.updateAnchor();
+            });
+        }
         padding: Style.space(8)
         contentWidth: previewCard.fittedContentWidth(Style.space(taskbar ? taskbar.previewWidth : 320))
         contentHeight: previewCard.fittedContentHeight(Style.space(taskbar ? taskbar.previewHeight : 220) + Style.space(28), Style.space(480))
@@ -1726,7 +1748,7 @@ BarWidget {
         popupBorder: Color.popups.border
         accent: Color.accent
         fontFamily: host.contentFontFamily
-        onChanged: function(nextValue) {
+        onChanged: function (nextValue) {
             host.change(settingKey, nextValue);
         }
     }
@@ -1749,7 +1771,7 @@ BarWidget {
         foreground: host.contentForeground
         accent: Color.accent
         fontFamily: host.contentFontFamily
-        onModified: function(nextValue) {
+        onModified: function (nextValue) {
             host.change(settingKey, nextValue);
         }
     }
@@ -1788,26 +1810,24 @@ BarWidget {
             onTextEdited: {
                 if (text.trim() === "")
                     host.change(parent.settingKey, "");
-
             }
             onEditingFinished: {
                 var nextValue = text.trim();
                 if (nextValue === "") {
                     host.change(parent.settingKey, "");
-                    return ;
+                    return;
                 }
                 var parsed = Number(nextValue);
                 if (isNaN(parsed)) {
                     text = "";
                     host.change(parent.settingKey, "");
-                    return ;
+                    return;
                 }
                 var clamped = Math.max(parent.minimumValue, Math.min(parent.maximumValue, Math.round(parsed)));
                 text = String(clamped);
                 host.change(parent.settingKey, String(clamped));
             }
         }
-
     }
 
     component SettingText: Column {
@@ -1838,7 +1858,6 @@ BarWidget {
             font.family: host.contentFontFamily
             onEditingFinished: host.change(parent.settingKey, text.trim())
         }
-
     }
 
     component PinnedMoveButton: Button {
@@ -1852,37 +1871,91 @@ BarWidget {
         verticalPadding: Style.space(5)
     }
 
-    component SettingsTabBar: Row {
-        id: root
+    component SettingsHub: Column {
+        id: settingsHub
 
         required property var panel
-        required property var tabs
 
-        spacing: Style.space(6)
+        width: parent.width
+        spacing: Style.space(4)
 
         Repeater {
-            model: root.tabs
+            model: settingsHub.panel.pages.length
 
-            Button {
+            Item {
+                id: categoryRow
+
                 required property int index
-                required property var modelData
+                readonly property var page: settingsHub.panel.pages[index]
+                readonly property string pageId: page && page.id ? String(page.id) : ""
+                readonly property string pageLabel: page && page.label ? String(page.label) : ""
+                readonly property string pageDescription: page && page.description ? String(page.description) : ""
 
-                width: (root.width - root.spacing * Math.max(0, root.tabs.length - 1)) / Math.max(1, root.tabs.length)
-                text: modelData && modelData.label !== undefined ? modelData.label : String(modelData)
-                selected: root.panel.currentTab === index
-                focusable: true
-                bordered: true
-                foreground: root.panel.contentForeground
-                accent: Color.accent
-                fontFamily: root.panel.contentFontFamily
-                onClicked: root.panel.selectTab(index)
+                width: parent.width
+                implicitHeight: Style.space(52)
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Math.max(2, Style.cornerRadius)
+                    color: rowMouse.containsMouse ? Style.hoverFillFor(settingsHub.panel.contentForeground, Color.accent) : "transparent"
+                }
+
+                Column {
+                    anchors.left: parent.left
+                    anchors.right: chevron.left
+                    anchors.leftMargin: Style.space(10)
+                    anchors.rightMargin: Style.space(8)
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Style.space(2)
+
+                    Text {
+                        width: parent.width
+                        text: categoryRow.pageLabel
+                        color: settingsHub.panel.contentForeground
+                        font.family: settingsHub.panel.contentFontFamily
+                        font.pixelSize: Style.font.body
+                        elide: Text.ElideRight
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: categoryRow.pageDescription
+                        color: Util.alpha(settingsHub.panel.contentForeground, 0.58)
+                        font.family: settingsHub.panel.contentFontFamily
+                        font.pixelSize: Style.font.caption
+                        elide: Text.ElideRight
+                    }
+
+                }
+
+                Text {
+                    id: chevron
+
+                    anchors.right: parent.right
+                    anchors.rightMargin: Style.space(10)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf054"
+                    color: Util.alpha(settingsHub.panel.contentForeground, 0.45)
+                    font.family: settingsHub.panel.contentFontFamily
+                    font.pixelSize: Style.font.caption
+                }
+
+                MouseArea {
+                    id: rowMouse
+
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: settingsHub.panel.openPage(categoryRow.pageId)
+                }
+
             }
+
         }
+
     }
 
-    component GeneralTab: Column {
-        id: generalTab
-
+    component ApplicationsPage: Column {
         required property var panel
 
         width: parent.width
@@ -1894,7 +1967,7 @@ BarWidget {
 
         PanelSectionHeader {
             width: parent.width
-            text: "WINDOWS & LABELS"
+            text: "RUNNING WINDOWS"
             foreground: panel.contentForeground
             fontFamily: panel.contentFontFamily
         }
@@ -1915,50 +1988,43 @@ BarWidget {
             fallbackValue: true
         }
 
-        SettingToggle {
+        SettingNumber {
             host: panel
-            settingKey: "iconOnlyWhenClosed"
-            settingLabel: "Icon only when closed"
-            settingDescription: "Expand pinned apps when a matching window opens."
-            fallbackValue: true
-        }
-
-        Row {
-            width: parent.width
-            spacing: Style.space(10)
-
-            SettingToggle {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "showIcons"
-                settingLabel: "Icons"
-                fallbackValue: true
-            }
-
-            SettingToggle {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "showLabels"
-                settingLabel: "Labels"
-                fallbackValue: true
-            }
-
-        }
-
-        SettingToggle {
-            host: panel
-            settingKey: "invertIconColors"
-            settingLabel: "Invert icon colors"
-            settingDescription: "Invert application icon pixels while preserving transparency."
-            fallbackValue: false
+            settingKey: "maxRunningWindows"
+            settingLabel: "Max windows"
+            fallbackValue: 12
+            minimumValue: 1
+            maximumValue: 30
         }
 
         SettingText {
             host: panel
-            settingKey: "labelFormat"
-            settingLabel: "Label format"
-            fallbackValue: "[APP_NAME] - [WINDOW_TITLE]"
-            placeholder: "[APP_NAME] - [WINDOW_TITLE]"
+            settingKey: "excludedClasses"
+            settingLabel: "Excluded classes"
+            placeholder: "Comma-separated regular expressions"
+        }
+
+        Rectangle {
+            width: parent.width
+            implicitHeight: pinHint.implicitHeight + Style.space(20)
+            radius: Math.max(2, Style.cornerRadius)
+            color: Style.hoverFillFor(panel.contentForeground, Color.accent)
+
+            Text {
+                id: pinHint
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: Style.space(10)
+                anchors.rightMargin: Style.space(10)
+                text: "Pinned applications are managed from each app's right-click menu."
+                color: panel.contentForeground
+                font.family: panel.contentFontFamily
+                font.pixelSize: Style.font.caption
+                wrapMode: Text.WordWrap
+            }
+
         }
 
 
@@ -2027,13 +2093,223 @@ BarWidget {
         }
 
 
+    }
+
+    component ClicksPage: Column {
+        required property var panel
+
+        width: parent.width
+        spacing: Style.space(12)
+
         PanelSeparator {
             width: parent.width
         }
 
         PanelSectionHeader {
             width: parent.width
-            text: "WIDTH & LIMITS"
+            text: "CLICK ACTIONS"
+            foreground: panel.contentForeground
+            fontFamily: panel.contentFontFamily
+        }
+
+        Row {
+            width: parent.width
+            spacing: Style.space(10)
+
+            SettingDropdown {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "leftClickAction"
+                settingLabel: "Left click"
+                fallbackValue: "Focus or Launch"
+                settingOptions: panel.actionOptions
+            }
+
+            SettingDropdown {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "rightClickAction"
+                settingLabel: "Right click"
+                fallbackValue: "Open Context Menu"
+                settingOptions: panel.actionOptions
+            }
+
+        }
+
+        Row {
+            width: parent.width
+            spacing: Style.space(10)
+
+            SettingDropdown {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "middleClickAction"
+                settingLabel: "Middle click"
+                fallbackValue: "Do Nothing"
+                settingOptions: panel.actionOptions
+            }
+
+            SettingDropdown {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "ctrlClickAction"
+                settingLabel: "Ctrl + left click"
+                fallbackValue: "Focus or Launch"
+                settingOptions: panel.actionOptions
+            }
+
+        }
+
+        Row {
+            width: parent.width
+            spacing: Style.space(10)
+
+            SettingDropdown {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "shiftClickAction"
+                settingLabel: "Shift + left click"
+                fallbackValue: "Focus or Launch"
+                settingOptions: panel.actionOptions
+            }
+
+            SettingDropdown {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "altClickAction"
+                settingLabel: "Alt + left click"
+                fallbackValue: "Focus or Launch"
+                settingOptions: panel.actionOptions
+            }
+
+        }
+
+        Text {
+            width: parent.width
+            text: "For combined modifiers, Ctrl takes priority over Shift, then Alt."
+            color: Util.alpha(panel.contentForeground, 0.58)
+            font.family: panel.contentFontFamily
+            font.pixelSize: Style.font.caption
+            wrapMode: Text.WordWrap
+        }
+
+
+    }
+
+    component ContentPage: Column {
+        required property var panel
+
+        width: parent.width
+        spacing: Style.space(12)
+
+        PanelSeparator {
+            width: parent.width
+        }
+
+        PanelSectionHeader {
+            width: parent.width
+            text: "VISIBILITY"
+            foreground: panel.contentForeground
+            fontFamily: panel.contentFontFamily
+        }
+
+        SettingToggle {
+            host: panel
+            settingKey: "iconOnlyWhenClosed"
+            settingLabel: "Icon only when closed"
+            settingDescription: "Expand pinned apps when a matching window opens."
+            fallbackValue: true
+        }
+
+        Row {
+            width: parent.width
+            spacing: Style.space(10)
+
+            SettingToggle {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "showIcons"
+                settingLabel: "Icons"
+                fallbackValue: true
+            }
+
+            SettingToggle {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "showLabels"
+                settingLabel: "Labels"
+                fallbackValue: true
+            }
+
+        }
+
+        SettingToggle {
+            host: panel
+            settingKey: "invertIconColors"
+            settingLabel: "Invert icon colors"
+            settingDescription: "Invert application icon pixels while preserving transparency."
+            fallbackValue: false
+        }
+
+        SettingText {
+            host: panel
+            settingKey: "labelFormat"
+            settingLabel: "Label format"
+            fallbackValue: "[APP_NAME] - [WINDOW_TITLE]"
+            placeholder: "[APP_NAME] - [WINDOW_TITLE]"
+        }
+
+        Row {
+            width: parent.width
+            spacing: Style.space(10)
+
+            SettingNumber {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "iconSize"
+                settingLabel: "Icon size"
+                fallbackValue: 18
+                minimumValue: 8
+                maximumValue: 32
+            }
+
+            SettingNumber {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "iconLabelSpacing"
+                settingLabel: "Icon / label gap"
+                fallbackValue: 8
+                minimumValue: 0
+                maximumValue: 20
+            }
+
+        }
+
+        SettingOptionalNumber {
+            host: panel
+            settingKey: "fontSize"
+            settingLabel: "Font size"
+            minimumValue: 8
+            maximumValue: 24
+            placeholder: "Auto"
+        }
+
+
+    }
+
+    component ChipLayoutPage: Column {
+        required property var panel
+
+        width: parent.width
+        spacing: Style.space(12)
+
+        PanelSeparator {
+            width: parent.width
+        }
+
+        PanelSectionHeader {
+            width: parent.width
+            text: "WIDTH"
             foreground: panel.contentForeground
             fontFamily: panel.contentFontFamily
         }
@@ -2074,6 +2350,27 @@ BarWidget {
 
         }
 
+        SettingNumber {
+            host: panel
+            settingKey: "maxLabelLength"
+            settingLabel: "Max label chars"
+            fallbackValue: 14
+            minimumValue: 4
+            maximumValue: 40
+        }
+
+
+        PanelSeparator {
+            width: parent.width
+        }
+
+        PanelSectionHeader {
+            width: parent.width
+            text: "PADDING & GAPS"
+            foreground: panel.contentForeground
+            fontFamily: panel.contentFontFamily
+        }
+
         Row {
             width: parent.width
             spacing: Style.space(10)
@@ -2081,214 +2378,56 @@ BarWidget {
             SettingNumber {
                 host: panel
                 width: (parent.width - parent.spacing) / 2
-                settingKey: "maxLabelLength"
-                settingLabel: "Max label chars"
-                fallbackValue: 14
-                minimumValue: 4
-                maximumValue: 40
+                settingKey: "itemHorizontalPadding"
+                settingLabel: "Horizontal padding"
+                fallbackValue: 8
+                minimumValue: 0
+                maximumValue: 24
             }
 
             SettingNumber {
                 host: panel
                 width: (parent.width - parent.spacing) / 2
-                settingKey: "maxRunningWindows"
-                settingLabel: "Max windows"
+                settingKey: "itemVerticalPadding"
+                settingLabel: "Vertical padding"
                 fallbackValue: 12
-                minimumValue: 1
-                maximumValue: 30
+                minimumValue: 0
+                maximumValue: 16
             }
 
         }
 
-
-    }
-
-    component BehaviorTab: Column {
-        id: behaviorTab
-
-        required property var panel
-        readonly property var actionOptions: ["Focus or Launch", "Open Context Menu", "New Window", "Close Window", "Close All Windows", "Toggle Pin", "Open Settings", "Do Nothing"]
-
-        width: parent.width
-        spacing: Style.space(12)
-
-        PanelSeparator {
-            width: parent.width
-        }
-
-        PanelSectionHeader {
-            width: parent.width
-            text: "CLICK ACTIONS"
-            foreground: panel.contentForeground
-            fontFamily: panel.contentFontFamily
-        }
-
-        Row {
-            width: parent.width
-            spacing: Style.space(10)
-
-            SettingDropdown {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "leftClickAction"
-                settingLabel: "Left click"
-                fallbackValue: "Focus or Launch"
-                settingOptions: behaviorTab.actionOptions
-            }
-
-            SettingDropdown {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "rightClickAction"
-                settingLabel: "Right click"
-                fallbackValue: "Open Context Menu"
-                settingOptions: behaviorTab.actionOptions
-            }
-
-        }
-
-        Row {
-            width: parent.width
-            spacing: Style.space(10)
-
-            SettingDropdown {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "middleClickAction"
-                settingLabel: "Middle click"
-                fallbackValue: "Do Nothing"
-                settingOptions: behaviorTab.actionOptions
-            }
-
-            SettingDropdown {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "ctrlClickAction"
-                settingLabel: "Ctrl + left click"
-                fallbackValue: "Focus or Launch"
-                settingOptions: behaviorTab.actionOptions
-            }
-
-        }
-
-        Row {
-            width: parent.width
-            spacing: Style.space(10)
-
-            SettingDropdown {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "shiftClickAction"
-                settingLabel: "Shift + left click"
-                fallbackValue: "Focus or Launch"
-                settingOptions: behaviorTab.actionOptions
-            }
-
-            SettingDropdown {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "altClickAction"
-                settingLabel: "Alt + left click"
-                fallbackValue: "Focus or Launch"
-                settingOptions: behaviorTab.actionOptions
-            }
-
-        }
-
-        Text {
-            width: parent.width
-            text: "For combined modifiers, Ctrl takes priority over Shift, then Alt."
-            color: Util.alpha(panel.contentForeground, 0.58)
-            font.family: panel.contentFontFamily
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-        }
-
-
-        PanelSeparator {
-            width: parent.width
-        }
-
-        PanelSectionHeader {
-            width: parent.width
-            text: "WINDOW PREVIEWS"
-            foreground: panel.contentForeground
-            fontFamily: panel.contentFontFamily
+        SettingNumber {
+            host: panel
+            settingKey: "itemSpacing"
+            settingLabel: "Item spacing"
+            fallbackValue: 4
+            minimumValue: 0
+            maximumValue: 24
         }
 
         SettingToggle {
             host: panel
-            settingKey: "showWindowPreviews"
-            settingLabel: "Show window previews"
-            settingDescription: "Show a live thumbnail when hovering an open window."
-            fallbackValue: false
+            settingKey: "trimEdgeItemGaps"
+            settingLabel: "Trim start/end item gaps"
+            settingDescription: "Keep item spacing between chips only, not at the bar edges."
+            fallbackValue: true
         }
 
-        SettingNumber {
+        SettingOptionalNumber {
             host: panel
-            settingKey: "previewDelay"
-            settingLabel: "Preview delay (ms)"
-            fallbackValue: 350
+            width: parent.width
+            settingKey: "itemCornerRadius"
+            settingLabel: "Item rounding"
             minimumValue: 0
-            maximumValue: 1500
-            stepValue: 50
-        }
-
-        Row {
-            width: parent.width
-            spacing: Style.space(10)
-
-            SettingNumber {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "previewWidth"
-                settingLabel: "Preview width"
-                fallbackValue: 320
-                minimumValue: 160
-                maximumValue: 640
-                stepValue: 10
-            }
-
-            SettingNumber {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "previewHeight"
-                settingLabel: "Preview height"
-                fallbackValue: 220
-                minimumValue: 100
-                maximumValue: 480
-                stepValue: 10
-            }
-
-        }
-
-        PanelSeparator {
-            width: parent.width
-        }
-
-        PanelSectionHeader {
-            width: parent.width
-            text: "ANIMATION"
-            foreground: panel.contentForeground
-            fontFamily: panel.contentFontFamily
-        }
-
-        SettingNumber {
-            host: panel
-            settingKey: "animationDuration"
-            settingLabel: "Animation duration (ms)"
-            fallbackValue: 180
-            minimumValue: 0
-            maximumValue: 500
-            stepValue: 10
+            maximumValue: 32
+            placeholder: "Theme"
         }
 
 
     }
 
-    component LayoutTab: Column {
-        id: layoutSizeTab
-
+    component BarPage: Column {
         required property var panel
 
         width: parent.width
@@ -2371,107 +2510,7 @@ BarWidget {
 
         PanelSectionHeader {
             width: parent.width
-            text: "SIZE & SPACING"
-            foreground: panel.contentForeground
-            fontFamily: panel.contentFontFamily
-        }
-
-        Row {
-            width: parent.width
-            spacing: Style.space(10)
-
-            SettingNumber {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "iconSize"
-                settingLabel: "Icon size"
-                fallbackValue: 18
-                minimumValue: 8
-                maximumValue: 32
-            }
-
-            SettingOptionalNumber {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "fontSize"
-                settingLabel: "Font size"
-                minimumValue: 8
-                maximumValue: 24
-                placeholder: "Auto"
-            }
-
-        }
-
-        Row {
-            width: parent.width
-            spacing: Style.space(10)
-
-            SettingNumber {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "itemHorizontalPadding"
-                settingLabel: "Horizontal padding"
-                fallbackValue: 8
-                minimumValue: 0
-                maximumValue: 24
-            }
-
-            SettingNumber {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "itemVerticalPadding"
-                settingLabel: "Vertical padding"
-                fallbackValue: 12
-                minimumValue: 0
-                maximumValue: 16
-            }
-
-        }
-
-        Row {
-            width: parent.width
-            spacing: Style.space(10)
-
-            SettingNumber {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "itemSpacing"
-                settingLabel: "Item spacing"
-                fallbackValue: 4
-                minimumValue: 0
-                maximumValue: 24
-            }
-
-            SettingNumber {
-                host: panel
-                width: (parent.width - parent.spacing) / 2
-                settingKey: "iconLabelSpacing"
-                settingLabel: "Icon / label gap"
-                fallbackValue: 8
-                minimumValue: 0
-                maximumValue: 20
-            }
-
-        }
-
-        SettingOptionalNumber {
-            host: panel
-            width: parent.width
-            settingKey: "itemCornerRadius"
-            settingLabel: "Item rounding"
-            minimumValue: 0
-            maximumValue: 32
-            placeholder: "Theme"
-        }
-
-
-        PanelSeparator {
-            width: parent.width
-        }
-
-        PanelSectionHeader {
-            width: parent.width
-            text: "SEPARATORS & FILTERS"
+            text: "SEPARATORS"
             foreground: panel.contentForeground
             fontFamily: panel.contentFontFamily
         }
@@ -2490,42 +2529,10 @@ BarWidget {
             fallbackValue: true
         }
 
-        SettingText {
-            host: panel
-            settingKey: "excludedClasses"
-            settingLabel: "Excluded classes"
-            placeholder: "Comma-separated regular expressions"
-        }
-
-        Rectangle {
-            width: parent.width
-            implicitHeight: pinHint.implicitHeight + Style.space(20)
-            radius: Math.max(2, Style.cornerRadius)
-            color: Style.hoverFillFor(panel.contentForeground, Color.accent)
-
-            Text {
-                id: pinHint
-
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: Style.space(10)
-                anchors.rightMargin: Style.space(10)
-                text: "Pinned applications are managed from each app's right-click menu."
-                color: panel.contentForeground
-                font.family: panel.contentFontFamily
-                font.pixelSize: Style.font.caption
-                wrapMode: Text.WordWrap
-            }
-
-        }
-
 
     }
 
-    component AppearanceTab: Column {
-        id: appearanceTab
-
+    component ColorsPage: Column {
         required property var panel
 
         width: parent.width
@@ -2716,6 +2723,13 @@ BarWidget {
             }
 
         }
+    }
+
+    component IndicatorPage: Column {
+        required property var panel
+
+        width: parent.width
+        spacing: Style.space(12)
 
         PanelSeparator {
             width: parent.width
@@ -2798,20 +2812,144 @@ BarWidget {
 
     }
 
+    component PreviewsPage: Column {
+        required property var panel
+
+        width: parent.width
+        spacing: Style.space(12)
+
+        PanelSeparator {
+            width: parent.width
+        }
+
+        PanelSectionHeader {
+            width: parent.width
+            text: "WINDOW PREVIEWS"
+            foreground: panel.contentForeground
+            fontFamily: panel.contentFontFamily
+        }
+
+        SettingToggle {
+            host: panel
+            settingKey: "showWindowPreviews"
+            settingLabel: "Show window previews"
+            settingDescription: "Show a live thumbnail when hovering an open window."
+            fallbackValue: false
+        }
+
+        SettingNumber {
+            host: panel
+            settingKey: "previewDelay"
+            settingLabel: "Preview delay (ms)"
+            fallbackValue: 350
+            minimumValue: 0
+            maximumValue: 1500
+            stepValue: 50
+        }
+
+        Row {
+            width: parent.width
+            spacing: Style.space(10)
+
+            SettingNumber {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "previewWidth"
+                settingLabel: "Preview width"
+                fallbackValue: 320
+                minimumValue: 160
+                maximumValue: 640
+                stepValue: 10
+            }
+
+            SettingNumber {
+                host: panel
+                width: (parent.width - parent.spacing) / 2
+                settingKey: "previewHeight"
+                settingLabel: "Preview height"
+                fallbackValue: 220
+                minimumValue: 100
+                maximumValue: 480
+                stepValue: 10
+            }
+
+        }
+
+        PanelSeparator {
+            width: parent.width
+        }
+
+        PanelSectionHeader {
+            width: parent.width
+            text: "ANIMATION"
+            foreground: panel.contentForeground
+            fontFamily: panel.contentFontFamily
+        }
+
+        SettingNumber {
+            host: panel
+            settingKey: "animationDuration"
+            settingLabel: "Animation duration (ms)"
+            fallbackValue: 180
+            minimumValue: 0
+            maximumValue: 500
+            stepValue: 10
+        }
+
+
+    }
+
     component TaskbarSettings: KeyboardPanel {
         id: settingsPopup
 
         property var values: ({})
-        property int currentTab: 0
-        readonly property var tabs: [{
-                "label": "General"
+        property string currentPage: ""
+        readonly property var actionOptions: ["Focus or Launch", "Open Context Menu", "New Window", "Close Window", "Close All Windows", "Toggle Pin", "Open Settings", "Do Nothing"]
+        readonly property var pages: [{
+                "id": "applications",
+                "label": "Applications",
+                "description": "Pins, running windows, and filters"
             }, {
-                "label": "Behavior"
+                "id": "clicks",
+                "label": "Clicks",
+                "description": "Mouse and modifier actions"
             }, {
-                "label": "Layout"
+                "id": "content",
+                "label": "Icons & labels",
+                "description": "Visibility, format, and type size"
             }, {
-                "label": "Appearance"
+                "id": "layout",
+                "label": "Chip layout",
+                "description": "Width, padding, gaps, and rounding"
+            }, {
+                "id": "bar",
+                "label": "Bar",
+                "description": "Chrome padding, fill, and separators"
+            }, {
+                "id": "colors",
+                "label": "Colors",
+                "description": "Normal, hover, and active styles"
+            }, {
+                "id": "indicator",
+                "label": "Indicator",
+                "description": "Active-window mark"
+            }, {
+                "id": "previews",
+                "label": "Previews",
+                "description": "Hover thumbnails and motion"
             }]
+        readonly property int pageIndex: {
+            if (currentPage === "")
+                return 0;
+            for (var i = 0; i < pages.length; i++) {
+                if (pages[i].id === currentPage)
+                    return i + 1;
+            }
+            return 0;
+        }
+        readonly property string currentPageLabel: pageIndex === 0 ? "OmaPanel Settings" : pages[pageIndex - 1].label
+        readonly property string currentPageDescription: pageIndex === 0 ? "Changes are saved instantly" : pages[pageIndex - 1].description
+
         readonly property color contentForeground: Color.popups.text
         readonly property string contentFontFamily: bar ? bar.fontFamily : Style.font.family
         readonly property var pinnedAppsModel: {
@@ -2825,7 +2963,7 @@ BarWidget {
         }
 
         signal settingChanged(string key, var value)
-        signal resetRequested()
+        signal resetRequested
 
         function value(key, fallback) {
             var current = values ? values[key] : undefined;
@@ -2849,8 +2987,13 @@ BarWidget {
             settingChanged(key, nextValue);
         }
 
-        function selectTab(index) {
-            currentTab = index;
+        function openPage(pageId) {
+            currentPage = pageId;
+            settingsFlick.contentY = 0;
+        }
+
+        function goHome() {
+            currentPage = "";
             settingsFlick.contentY = 0;
         }
 
@@ -2858,7 +3001,7 @@ BarWidget {
             var apps = pinnedAppsModel.slice();
             var next = index + delta;
             if (next < 0 || next >= apps.length)
-                return ;
+                return;
 
             var item = apps[index];
             apps[index] = apps[next];
@@ -2878,7 +3021,12 @@ BarWidget {
             activeFocusOnTab: true
             contentWidth: width
             contentHeight: settingsColumn.implicitHeight
-            Keys.onEscapePressed: function(event) {
+            Keys.onEscapePressed: function (event) {
+                if (settingsPopup.currentPage !== "") {
+                    settingsPopup.goHome();
+                    event.accepted = true;
+                    return;
+                }
                 settingsPopup.close();
                 event.accepted = true;
             }
@@ -2897,17 +3045,35 @@ BarWidget {
                     width: parent.width
                     implicitHeight: Math.max(settingsTitleColumn.implicitHeight, closeButton.implicitHeight)
 
+                    Button {
+                        id: backButton
+
+                        visible: settingsPopup.currentPage !== ""
+                        width: visible ? implicitWidth : 0
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        iconText: "\uf053"
+                        foreground: settingsPopup.contentForeground
+                        accent: Color.accent
+                        fontFamily: settingsPopup.contentFontFamily
+                        horizontalPadding: Style.space(9)
+                        verticalPadding: Style.space(6)
+                        tooltipText: "Back to categories"
+                        onClicked: settingsPopup.goHome()
+                    }
+
                     Column {
                         id: settingsTitleColumn
 
-                        anchors.left: parent.left
+                        anchors.left: backButton.visible ? backButton.right : parent.left
+                        anchors.leftMargin: backButton.visible ? Style.space(8) : 0
                         anchors.right: resetButton.left
                         anchors.rightMargin: Style.space(12)
                         spacing: Style.space(2)
 
                         Text {
                             width: parent.width
-                            text: "OmaPanel Settings"
+                            text: settingsPopup.currentPageLabel
                             color: settingsPopup.contentForeground
                             font.family: settingsPopup.contentFontFamily
                             font.pixelSize: Style.font.title
@@ -2917,10 +3083,11 @@ BarWidget {
 
                         Text {
                             width: parent.width
-                            text: "Changes are saved instantly"
+                            text: settingsPopup.currentPageDescription
                             color: Util.alpha(settingsPopup.contentForeground, 0.58)
                             font.family: settingsPopup.contentFontFamily
                             font.pixelSize: Style.font.caption
+                            elide: Text.ElideRight
                         }
 
                     }
@@ -2960,33 +3127,52 @@ BarWidget {
                 }
 
 
-                SettingsTabBar {
-                    width: parent.width
-                    panel: settingsPopup
-                    tabs: settingsPopup.tabs
-                }
-
                 StackLayout {
                     width: parent.width
                     height: children[currentIndex] ? children[currentIndex].implicitHeight : 0
-                    currentIndex: settingsPopup.currentTab
+                    currentIndex: settingsPopup.pageIndex
 
-                    GeneralTab {
+                    SettingsHub {
                         panel: settingsPopup
                         Layout.fillWidth: true
                     }
 
-                    BehaviorTab {
+                    ApplicationsPage {
                         panel: settingsPopup
                         Layout.fillWidth: true
                     }
 
-                    LayoutTab {
+                    ClicksPage {
                         panel: settingsPopup
                         Layout.fillWidth: true
                     }
 
-                    AppearanceTab {
+                    ContentPage {
+                        panel: settingsPopup
+                        Layout.fillWidth: true
+                    }
+
+                    ChipLayoutPage {
+                        panel: settingsPopup
+                        Layout.fillWidth: true
+                    }
+
+                    BarPage {
+                        panel: settingsPopup
+                        Layout.fillWidth: true
+                    }
+
+                    ColorsPage {
+                        panel: settingsPopup
+                        Layout.fillWidth: true
+                    }
+
+                    IndicatorPage {
+                        panel: settingsPopup
+                        Layout.fillWidth: true
+                    }
+
+                    PreviewsPage {
                         panel: settingsPopup
                         Layout.fillWidth: true
                     }
@@ -3005,8 +3191,6 @@ BarWidget {
 
                 policy: QQC.ScrollBar.AsNeeded
             }
-
         }
-
     }
 }

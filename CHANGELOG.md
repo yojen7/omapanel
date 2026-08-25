@@ -4,6 +4,11 @@ All notable changes to OmaPanel are documented here.
 
 ## Unreleased
 
+- Add a Chip layout switch that trims item-spacing gaps on the first and
+  last chips so bar chrome is not padded by inter-item spacing.
+- Replace the four top settings tabs with a two-stage panel: a category list,
+  then a focused page for applications, clicks, icons, chip layout, bar,
+  colors, indicator, and previews.
 - Bind settings tabs and fields through `panel` / `host` instead of a
   self-bound `settingsPopup` property, so labels get popup text color and
   toggles keep their saved values.

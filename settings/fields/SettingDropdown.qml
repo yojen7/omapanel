@@ -18,7 +18,7 @@ Dropdown {
     popupBorder: Color.popups.border
     accent: Color.accent
     fontFamily: host.contentFontFamily
-    onChanged: function(nextValue) {
+    onChanged: function (nextValue) {
         host.change(settingKey, nextValue);
     }
 }

@@ -4,23 +4,34 @@
 
     PanelSectionHeader {
         width: parent.width
-        text: "SEPARATORS & FILTERS"
+        text: "RUNNING WINDOWS"
         foreground: panel.contentForeground
         fontFamily: panel.contentFontFamily
     }
 
     SettingToggle {
         host: panel
-        settingKey: "leadingSeparator"
-        settingLabel: "Leading separator"
-        fallbackValue: false
+        settingKey: "showRunning"
+        settingLabel: "Show running windows"
+        settingDescription: "Append non-pinned Hyprland windows."
+        fallbackValue: true
     }
 
     SettingToggle {
         host: panel
-        settingKey: "sectionSeparator"
-        settingLabel: "Pinned / running separator"
+        settingKey: "groupRunningByWorkspace"
+        settingLabel: "Group by workspace"
+        settingDescription: "Sort dynamic windows and separate workspace groups."
         fallbackValue: true
+    }
+
+    SettingNumber {
+        host: panel
+        settingKey: "maxRunningWindows"
+        settingLabel: "Max windows"
+        fallbackValue: 12
+        minimumValue: 1
+        maximumValue: 30
     }
 
     SettingText {
