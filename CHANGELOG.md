@@ -4,6 +4,11 @@ All notable changes to OmaPanel are documented here.
 
 ## Unreleased
 
+- Add an Auto height switch on the Previews page that sizes the thumbnail
+  from the hovered window's aspect ratio.
+- Add a Preview quality percentage (10–100) that downsamples hover thumbnails.
+- Add an optional Bar height setting (16–64, capped to the Omarchy bar)
+  that centers the chrome in the bar slot.
 - Add a Chip layout switch that trims item-spacing gaps on the first and
   last chips so bar chrome is not padded by inter-item spacing.
 - Replace the four top settings tabs with a two-stage panel: a category list,

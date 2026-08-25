@@ -23,6 +23,13 @@
         onTriggered: taskbar.commitPreview(taskbar.pendingPreviewAnchor, taskbar.pendingPreviewToplevel)
     }
 
+    Timer {
+        id: previewHideTimer
+
+        interval: 160
+        onTriggered: taskbar.cancelPreview(null)
+    }
+
     ContextMenu {
     }
 

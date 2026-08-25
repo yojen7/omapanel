@@ -207,13 +207,21 @@ background values disable those persistent fills; an empty hover background
 falls back to the theme hover fill. State colors never blend.
 `itemCornerRadius` controls this rectangle's radius; an empty value follows the
 theme and `0` keeps its corners square.
-`barTopPadding`, `barBottomPadding`, `barHorizontalPadding`, `barBackgroundColor`,
-and `barCornerRadius` wrap the chip row in optional chrome. Chip height is
-clamped to the bar size minus the vertical bar paddings.
+`barHeight`, `barTopPadding`, `barBottomPadding`, `barHorizontalPadding`,
+`barBackgroundColor`, and `barCornerRadius` wrap the chip row in optional
+chrome. An empty `barHeight` follows Omarchy `barSize`; a value is clamped
+to 16–64 and never exceeds `barSize`. Chrome is centered in the bar slot.
+Chip height is clamped to that chrome height minus the vertical bar paddings.
 `animationDuration` drives width, opacity, and indicator animations; `0`
 makes those changes instant.
 When `showWindowPreviews` is enabled, hovering an open window shows a delayed
 `ScreencopyView` popup of `toplevel.wayland` instead of the bar tooltip.
+`previewAutoHeight` scales that popup's height from the window size in
+Hyprland IPC (falling back to `previewHeight` when size is unknown).
+`previewQuality` keeps a mipmapped capture at that fraction of the window
+size (never smaller than the popup) so downscale uses trilinear filtering
+instead of a single bilinear stretch. The thumbnail letterboxes to the
+window aspect ratio.
 
 Opacity is assigned to the shared icon-and-label row, so both types of content
 fade together. Closed pinned applications use normal-state opacity.
@@ -258,7 +266,7 @@ detail page:
 - Clicks — mouse and modifier actions
 - Icons & labels — visibility, format, icon size, and font size
 - Chip layout — width modes, padding, gaps, and item rounding
-- Bar — chrome padding, fill, and separators
+- Bar — height, chrome padding, fill, and separators
 - Colors — normal, hover, and active styles
 - Indicator — active-window mark
 - Previews — hover thumbnails and animation duration

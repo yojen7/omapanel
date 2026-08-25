@@ -6,7 +6,7 @@ Item {
     required property var taskbar
 
     width: Style.space(9)
-    height: taskbar ? taskbar.barSize : 24
+    height: taskbar ? taskbar.panelHeight : 24
 
     Rectangle {
         width: Math.max(1, Style.spaceReal(1))

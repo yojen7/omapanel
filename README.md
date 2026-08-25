@@ -30,8 +30,8 @@ The plugin uses the permanent namespaced ID `atagulalan.omapanel`.
 - Normal, hover, and active states each have independent foreground,
   background, font-weight, and foreground-opacity controls.
 - Application icon colors can be inverted without changing their transparency.
-- Optional bar chrome can add padding, a background fill, and rounding around
-  the chip row.
+- Optional bar chrome can set a limited height (centered in the Omarchy bar),
+  padding, a background fill, and rounding around the chip row.
 - Hover can keep or replace the active style on the focused window.
 - Hovering an open window can show a live preview thumbnail.
 - Pinned applications can be reordered from the settings panel.

@@ -107,26 +107,8 @@
 
     function setPointerHovered(hovered) {
         pointerHovered = hovered;
-        if (!ready)
-            return ;
-
-        if (hovered) {
-            if (taskbar.showWindowPreviews && appWindow) {
-                if (bar)
-                    bar.hideTooltip(chip);
-
-                taskbar.requestPreview(chip, appWindow);
-            } else if (bar) {
-                bar.showTooltip(chip, tooltipText);
-            }
-            return ;
-        }
-        if (bar)
-            bar.hideTooltip(chip);
-
-        if (appWindow)
-            taskbar.cancelPreview(appWindow);
-
+        if (ready)
+            taskbar.handleChipHover(chip, hovered, appWindow);
     }
 
     bar: ready ? taskbar.bar : null
@@ -141,7 +123,7 @@
     fixedHeight: {
         var padTop = ready ? taskbar.barPadTop : 0;
         var padBottom = ready ? taskbar.barPadBottom : 0;
-        var barHeight = ready ? taskbar.barSize : 24;
+        var barHeight = ready ? taskbar.panelHeight : 24;
         var verticalPad = Style.space((ready ? taskbar.itemVerticalPadding : 12) * 2);
         return Math.min(Math.max(1, barHeight - padTop - padBottom), contentHeight + verticalPad);
     }

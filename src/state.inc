@@ -13,6 +13,7 @@
     property var pendingPreviewToplevel: null
     property Item previewAnchor: null
     property var previewToplevel: null
+    property int previewHoverCount: 0
     readonly property bool opened: contextMenuOpen || settingsPanelOpen
     readonly property var contextWindows: windowsForDescriptor(contextApp, contextWindow)
     readonly property var contextEntry: desktopEntryFor(contextApp, contextWindow)

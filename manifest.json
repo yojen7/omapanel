@@ -74,6 +74,7 @@
       "maxLabelLength": 14,
       "maxRunningWindows": 12,
       "excludedClasses": "",
+      "barHeight": "",
       "barTopPadding": 0,
       "barBottomPadding": 0,
       "barHorizontalPadding": 0,
@@ -84,7 +85,9 @@
       "showWindowPreviews": false,
       "previewDelay": 350,
       "previewWidth": 320,
-      "previewHeight": 220
+      "previewHeight": 220,
+      "previewAutoHeight": false,
+      "previewQuality": 100
     },
     "schema": [
       {
@@ -266,6 +269,23 @@
         "defaultValue": 220
       },
       {
+        "key": "previewAutoHeight",
+        "type": "boolean",
+        "label": "Auto preview height",
+        "description": "Match the thumbnail height to the window aspect ratio.",
+        "defaultValue": false
+      },
+      {
+        "key": "previewQuality",
+        "type": "integer",
+        "label": "Preview quality",
+        "description": "Thumbnail sharpness as a percentage of the preview size; range 10–100.",
+        "min": 10,
+        "max": 100,
+        "step": 5,
+        "defaultValue": 100
+      },
+      {
         "key": "animationDuration",
         "type": "integer",
         "label": "Animation duration",
@@ -364,6 +384,13 @@
         "type": "string",
         "label": "Item corner radius",
         "description": "Optional radius from 0 to 32. Leave empty to follow the theme; 0 makes item backgrounds square.",
+        "defaultValue": ""
+      },
+      {
+        "key": "barHeight",
+        "type": "string",
+        "label": "Bar height",
+        "description": "Optional height from 16 to 64. Leave empty to follow the Omarchy bar; values are also capped to the bar size. The chrome is centered in the bar slot.",
         "defaultValue": ""
       },
       {

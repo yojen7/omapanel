@@ -14,6 +14,11 @@ WidgetButton {
 
     // @include AppChipVisuals.inc
 
+    Component.onDestruction: {
+        if (chip.pointerHovered && taskbar)
+            taskbar.handleChipHover(chip, false, chip.appWindow);
+    }
+
     MouseArea {
         anchors.fill: parent
         z: 10

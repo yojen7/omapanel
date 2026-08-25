@@ -10,6 +10,7 @@ Column {
     required property int maximumValue
     property string placeholder: "Auto"
 
+    width: parent ? parent.width : 0
     spacing: Style.spacing.md
 
     Text {

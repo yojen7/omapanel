@@ -9,6 +9,16 @@
         fontFamily: panel.contentFontFamily
     }
 
+    SettingOptionalNumber {
+        host: panel
+        width: parent.width
+        settingKey: "barHeight"
+        settingLabel: "Height"
+        minimumValue: 16
+        maximumValue: 64
+        placeholder: "Bar"
+    }
+
     Row {
         width: parent.width
         spacing: Style.space(10)

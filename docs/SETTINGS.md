@@ -35,6 +35,8 @@ those windows are not duplicated in the dynamic running section.
 | `previewDelay` | integer | `350` | Milliseconds to wait before showing a window preview; range 0–1500 |
 | `previewWidth` | integer | `320` | Preview thumbnail width; range 160–640 |
 | `previewHeight` | integer | `220` | Preview thumbnail height; range 100–480 |
+| `previewAutoHeight` | boolean | `false` | Size height from the window aspect ratio and `previewWidth` |
+| `previewQuality` | integer | `100` | Capture resolution as a percentage of the window; range 10–100 |
 | `animationDuration` | integer | `180` | Milliseconds for item and indicator animations; `0` disables motion |
 
 Closed pinned launchers keep the existing tooltip. Open windows hide that
@@ -115,14 +117,17 @@ square item backgrounds.
 
 | Key | Type | Default | Range | Description |
 |---|---:|---:|---:|---|
+| `barHeight` | numeric string or empty | empty | 16–64, or empty | Chrome height; empty follows the Omarchy bar; also capped to `barSize` |
 | `barTopPadding` | integer | `0` | 0–16 | Space above the chip row, through `Style.space()` |
 | `barBottomPadding` | integer | `0` | 0–16 | Space below the chip row, through `Style.space()` |
 | `barHorizontalPadding` | integer | `0` | 0–24 | Space left and right of the chip row |
 | `barBackgroundColor` | hex or empty | empty | `#RRGGBB` / `#RRGGBBAA` | Widget chrome fill; empty draws no bar background |
 | `barCornerRadius` | numeric string or empty | empty | 0–32, or empty | Chrome radius; empty follows the theme; `0` is square |
 
-Vertical bar padding also shrinks chips so the extra inset is visible inside
-the Omarchy bar height. Horizontal padding increases the widget width.
+The widget still occupies the full Omarchy bar slot. A smaller `barHeight`
+centers the chrome vertically and also shrinks chips. Vertical bar padding
+then insets the chip row inside that chrome. Horizontal padding increases
+the widget width.
 
 ## State appearance
 

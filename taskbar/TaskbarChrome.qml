@@ -9,7 +9,7 @@ Item {
 
     anchors.centerIn: parent
     implicitWidth: content.implicitWidth + (taskbar ? taskbar.barPadHorizontal : 0) * 2
-    implicitHeight: content.implicitHeight + (taskbar ? taskbar.barPadTop + taskbar.barPadBottom : 0)
+    implicitHeight: taskbar ? taskbar.panelHeight : content.implicitHeight
     width: implicitWidth
     height: implicitHeight
     readonly property bool trimEdges: !!(taskbar && taskbar.trimEdgeItemGaps)

@@ -18,6 +18,19 @@
         return Helpers.resolvedFontSize(rawValue, automaticFontSize);
     }
 
+    function resolvedBarHeight(rawValue) {
+        var available = Math.max(1, Math.round(barSize));
+        var text = rawValue === undefined || rawValue === null ? "" : String(rawValue).trim();
+        if (text === "")
+            return available;
+
+        var parsed = Number(text);
+        if (isNaN(parsed))
+            return available;
+
+        return Math.max(16, Math.min(64, Math.min(available, Math.round(parsed))));
+    }
+
     function resolvedOpacity(rawValue) {
         return Helpers.resolvedOpacity(rawValue);
     }

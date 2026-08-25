@@ -112,3 +112,27 @@
         var entry = windowDesktopEntry(toplevel);
         return sanitizeIconName(entry && entry.icon ? entry.icon : fallbackIconName);
     }
+
+    function windowPixelSize(toplevel) {
+        var width = 0;
+        var height = 0;
+        var ipc = toplevel ? (toplevel.lastIpcObject || null) : null;
+        var size = ipc ? ipc.size : null;
+        if (size) {
+            if (size.width !== undefined) {
+                width = Number(size.width);
+                height = Number(size.height);
+            } else if (size.length >= 2) {
+                width = Number(size[0]);
+                height = Number(size[1]);
+            }
+        }
+        if (!(width > 0 && height > 0) && toplevel && toplevel.wayland) {
+            width = Number(toplevel.wayland.width || 0);
+            height = Number(toplevel.wayland.height || 0);
+        }
+        return {
+            "width": isNaN(width) ? 0 : width,
+            "height": isNaN(height) ? 0 : height
+        };
+    }

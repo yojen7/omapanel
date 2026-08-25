@@ -55,6 +55,24 @@
 
     }
 
+    SettingToggle {
+        host: panel
+        settingKey: "previewAutoHeight"
+        settingLabel: "Auto height"
+        settingDescription: "Match the thumbnail height to the window aspect ratio."
+        fallbackValue: false
+    }
+
+    SettingNumber {
+        host: panel
+        settingKey: "previewQuality"
+        settingLabel: "Preview quality (%)"
+        fallbackValue: 100
+        minimumValue: 10
+        maximumValue: 100
+        stepValue: 5
+    }
+
     PanelSeparator {
         width: parent.width
     }

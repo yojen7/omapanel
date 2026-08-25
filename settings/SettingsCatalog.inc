@@ -18,7 +18,7 @@
         }, {
             "id": "bar",
             "label": "Bar",
-            "description": "Chrome padding, fill, and separators"
+            "description": "Height, padding, fill, and separators"
         }, {
             "id": "colors",
             "label": "Colors",

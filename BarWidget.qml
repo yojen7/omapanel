@@ -52,6 +52,7 @@ BarWidget {
     readonly property int barTopPadding: clampedInt("barTopPadding", 0, 0, 16)
     readonly property int barBottomPadding: clampedInt("barBottomPadding", 0, 0, 16)
     readonly property int barHorizontalPadding: clampedInt("barHorizontalPadding", 0, 0, 24)
+    readonly property int panelHeight: resolvedBarHeight(setting("barHeight", ""))
     readonly property real barPadTop: Style.space(barTopPadding)
     readonly property real barPadBottom: Style.space(barBottomPadding)
     readonly property real barPadHorizontal: Style.space(barHorizontalPadding)
@@ -65,6 +66,8 @@ BarWidget {
     readonly property int previewDelay: clampedInt("previewDelay", 350, 0, 1500)
     readonly property int previewWidth: clampedInt("previewWidth", 320, 160, 640)
     readonly property int previewHeight: clampedInt("previewHeight", 220, 100, 480)
+    readonly property bool previewAutoHeight: boolSetting("previewAutoHeight", false)
+    readonly property int previewQuality: clampedInt("previewQuality", 100, 10, 100)
     readonly property int iconLabelSpacing: clampedInt("iconLabelSpacing", 8, 0)
     readonly property int iconSize: clampedInt("iconSize", 18, 8)
     readonly property int automaticFontSize: Math.max(1, Math.round(Style.font.body))
@@ -119,6 +122,7 @@ BarWidget {
     property var pendingPreviewToplevel: null
     property Item previewAnchor: null
     property var previewToplevel: null
+    property int previewHoverCount: 0
     readonly property bool opened: contextMenuOpen || settingsPanelOpen
     readonly property var contextWindows: windowsForDescriptor(contextApp, contextWindow)
     readonly property var contextEntry: desktopEntryFor(contextApp, contextWindow)
@@ -204,6 +208,19 @@ BarWidget {
 
     function resolvedFontSize(rawValue) {
         return Helpers.resolvedFontSize(rawValue, automaticFontSize);
+    }
+
+    function resolvedBarHeight(rawValue) {
+        var available = Math.max(1, Math.round(barSize));
+        var text = rawValue === undefined || rawValue === null ? "" : String(rawValue).trim();
+        if (text === "")
+            return available;
+
+        var parsed = Number(text);
+        if (isNaN(parsed))
+            return available;
+
+        return Math.max(16, Math.min(64, Math.min(available, Math.round(parsed))));
     }
 
     function resolvedOpacity(rawValue) {
@@ -407,6 +424,30 @@ BarWidget {
     function windowIcon(toplevel) {
         var entry = windowDesktopEntry(toplevel);
         return sanitizeIconName(entry && entry.icon ? entry.icon : fallbackIconName);
+    }
+
+    function windowPixelSize(toplevel) {
+        var width = 0;
+        var height = 0;
+        var ipc = toplevel ? (toplevel.lastIpcObject || null) : null;
+        var size = ipc ? ipc.size : null;
+        if (size) {
+            if (size.width !== undefined) {
+                width = Number(size.width);
+                height = Number(size.height);
+            } else if (size.length >= 2) {
+                width = Number(size[0]);
+                height = Number(size[1]);
+            }
+        }
+        if (!(width > 0 && height > 0) && toplevel && toplevel.wayland) {
+            width = Number(toplevel.wayland.width || 0);
+            height = Number(toplevel.wayland.height || 0);
+        }
+        return {
+            "width": isNaN(width) ? 0 : width,
+            "height": isNaN(height) ? 0 : height
+        };
     }
 
     function launchCommandForDesktopId(desktopId) {
@@ -720,6 +761,7 @@ BarWidget {
 
     function commitPreview(anchor, toplevel) {
         clearPendingPreview();
+        previewHideTimer.stop();
         previewAnchor = anchor;
         previewToplevel = toplevel;
     }
@@ -731,13 +773,14 @@ BarWidget {
         }
         pendingPreviewAnchor = anchor;
         pendingPreviewToplevel = toplevel;
-        if (previewDelay <= 0 || previewToplevel !== null)
+        if (previewDelay <= 0 || previewToplevel !== null || previewHideTimer.running)
             commitPreview(anchor, toplevel);
         else
             previewTimer.restart();
     }
 
     function cancelPreview(toplevel) {
+        previewHideTimer.stop();
         if (!toplevel || pendingPreviewToplevel === toplevel)
             clearPendingPreview();
 
@@ -745,6 +788,30 @@ BarWidget {
             previewToplevel = null;
             previewAnchor = null;
         }
+    }
+
+    function handleChipHover(chip, hovered, toplevel) {
+        if (!showWindowPreviews) {
+            if (chip.bar)
+                hovered ? chip.bar.showTooltip(chip, chip.tooltipText) : chip.bar.hideTooltip(chip);
+            return ;
+        }
+        if (hovered) {
+            previewHoverCount++;
+            previewHideTimer.stop();
+            if (chip.bar)
+                chip.bar.hideTooltip(chip);
+            if (toplevel)
+                requestPreview(chip, toplevel);
+            else if (!previewToplevel && !pendingPreviewToplevel && chip.bar)
+                chip.bar.showTooltip(chip, chip.tooltipText);
+            return ;
+        }
+        if (chip.bar)
+            chip.bar.hideTooltip(chip);
+        previewHoverCount = Math.max(0, previewHoverCount - 1);
+        if (previewHoverCount === 0)
+            previewHideTimer.restart();
     }
 
     function previewToplevelAlive(toplevel) {
@@ -899,6 +966,13 @@ BarWidget {
         onTriggered: taskbar.commitPreview(taskbar.pendingPreviewAnchor, taskbar.pendingPreviewToplevel)
     }
 
+    Timer {
+        id: previewHideTimer
+
+        interval: 160
+        onTriggered: taskbar.cancelPreview(null)
+    }
+
     ContextMenu {
     }
 
@@ -928,7 +1002,7 @@ BarWidget {
 
     component TaskbarSeparator: Item {
         width: Style.space(9)
-        height: taskbar ? taskbar.barSize : 24
+        height: taskbar ? taskbar.panelHeight : 24
 
         Rectangle {
             width: Math.max(1, Style.spaceReal(1))
@@ -1156,26 +1230,8 @@ BarWidget {
 
         function setPointerHovered(hovered) {
             pointerHovered = hovered;
-            if (!ready)
-                return ;
-
-            if (hovered) {
-                if (taskbar.showWindowPreviews && appWindow) {
-                    if (bar)
-                        bar.hideTooltip(chip);
-
-                    taskbar.requestPreview(chip, appWindow);
-                } else if (bar) {
-                    bar.showTooltip(chip, tooltipText);
-                }
-                return ;
-            }
-            if (bar)
-                bar.hideTooltip(chip);
-
-            if (appWindow)
-                taskbar.cancelPreview(appWindow);
-
+            if (ready)
+                taskbar.handleChipHover(chip, hovered, appWindow);
         }
 
         bar: ready ? taskbar.bar : null
@@ -1190,7 +1246,7 @@ BarWidget {
         fixedHeight: {
             var padTop = ready ? taskbar.barPadTop : 0;
             var padBottom = ready ? taskbar.barPadBottom : 0;
-            var barHeight = ready ? taskbar.barSize : 24;
+            var barHeight = ready ? taskbar.panelHeight : 24;
             var verticalPad = Style.space((ready ? taskbar.itemVerticalPadding : 12) * 2);
             return Math.min(Math.max(1, barHeight - padTop - padBottom), contentHeight + verticalPad);
         }
@@ -1324,6 +1380,11 @@ BarWidget {
         }
 
 
+        Component.onDestruction: {
+            if (chip.pointerHovered && taskbar)
+                taskbar.handleChipHover(chip, false, chip.appWindow);
+        }
+
         MouseArea {
             anchors.fill: parent
             z: 10
@@ -1348,7 +1409,7 @@ BarWidget {
 
         anchors.centerIn: parent
         implicitWidth: content.implicitWidth + (taskbar ? taskbar.barPadHorizontal : 0) * 2
-        implicitHeight: content.implicitHeight + (taskbar ? taskbar.barPadTop + taskbar.barPadBottom : 0)
+        implicitHeight: taskbar ? taskbar.panelHeight : content.implicitHeight
         width: implicitWidth
         height: implicitHeight
         readonly property bool trimEdges: !!(taskbar && taskbar.trimEdgeItemGaps)
@@ -1658,8 +1719,24 @@ BarWidget {
             });
         }
         padding: Style.space(8)
+        readonly property int thumbnailHeight: {
+            var fallback = Style.space(taskbar ? taskbar.previewHeight : 220);
+            if (!taskbar || !taskbar.previewAutoHeight)
+                return fallback;
+
+            var size = taskbar.windowPixelSize(taskbar.previewToplevel);
+            if (!size || !(size.width > 0 && size.height > 0))
+                return fallback;
+
+            var scaled = Math.round(Style.space(taskbar.previewWidth) * size.height / size.width);
+            return Math.max(Style.space(100), Math.min(Style.space(480), scaled));
+        }
+        readonly property real qualityScale: {
+            var quality = taskbar ? taskbar.previewQuality : 100;
+            return Math.max(0.1, Math.min(1, quality / 100));
+        }
         contentWidth: previewCard.fittedContentWidth(Style.space(taskbar ? taskbar.previewWidth : 320))
-        contentHeight: previewCard.fittedContentHeight(Style.space(taskbar ? taskbar.previewHeight : 220) + Style.space(28), Style.space(480))
+        contentHeight: previewCard.fittedContentHeight(previewCard.thumbnailHeight + Style.space(28), Style.space(480))
 
         Item {
             anchors.fill: parent
@@ -1688,10 +1765,31 @@ BarWidget {
                 ScreencopyView {
                     id: previewView
 
-                    anchors.fill: parent
                     captureSource: taskbar.previewToplevel ? taskbar.previewToplevel.wayland : null
                     live: previewCard.open
                     paintCursor: false
+                    visible: hasContent && sourceSize.width > 0 && sourceSize.height > 0
+                    width: previewView.captureWidth
+                    height: previewView.captureHeight
+                    readonly property real fitScale: {
+                        if (sourceSize.width <= 0 || sourceSize.height <= 0)
+                            return 1;
+
+                        return Math.min(previewFrame.width / sourceSize.width, previewFrame.height / sourceSize.height);
+                    }
+                    readonly property int captureWidth: Math.max(Math.round(sourceSize.width * fitScale), Math.round(sourceSize.width * previewCard.qualityScale))
+                    readonly property int captureHeight: Math.max(Math.round(sourceSize.height * fitScale), Math.round(sourceSize.height * previewCard.qualityScale))
+                    readonly property real drawScale: captureWidth > 0 ? Math.min(previewFrame.width / captureWidth, previewFrame.height / captureHeight) : 1
+                    x: (previewFrame.width - captureWidth * drawScale) / 2
+                    y: (previewFrame.height - captureHeight * drawScale) / 2
+                    transformOrigin: Item.TopLeft
+                    transform: Scale {
+                        xScale: previewView.drawScale
+                        yScale: previewView.drawScale
+                    }
+                    layer.enabled: visible
+                    layer.mipmap: true
+                    layer.smooth: true
                 }
 
             }
@@ -1784,6 +1882,7 @@ BarWidget {
         required property int maximumValue
         property string placeholder: "Auto"
 
+        width: parent ? parent.width : 0
         spacing: Style.spacing.md
 
         Text {
@@ -2444,6 +2543,16 @@ BarWidget {
             fontFamily: panel.contentFontFamily
         }
 
+        SettingOptionalNumber {
+            host: panel
+            width: parent.width
+            settingKey: "barHeight"
+            settingLabel: "Height"
+            minimumValue: 16
+            maximumValue: 64
+            placeholder: "Bar"
+        }
+
         Row {
             width: parent.width
             spacing: Style.space(10)
@@ -2875,6 +2984,24 @@ BarWidget {
 
         }
 
+        SettingToggle {
+            host: panel
+            settingKey: "previewAutoHeight"
+            settingLabel: "Auto height"
+            settingDescription: "Match the thumbnail height to the window aspect ratio."
+            fallbackValue: false
+        }
+
+        SettingNumber {
+            host: panel
+            settingKey: "previewQuality"
+            settingLabel: "Preview quality (%)"
+            fallbackValue: 100
+            minimumValue: 10
+            maximumValue: 100
+            stepValue: 5
+        }
+
         PanelSeparator {
             width: parent.width
         }
@@ -2924,7 +3051,7 @@ BarWidget {
             }, {
                 "id": "bar",
                 "label": "Bar",
-                "description": "Chrome padding, fill, and separators"
+                "description": "Height, padding, fill, and separators"
             }, {
                 "id": "colors",
                 "label": "Colors",
